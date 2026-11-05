@@ -8,7 +8,7 @@ import { UserInfo } from "@/types/userInterface";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { memo, useMemo } from "react";
+import { createElement, memo, useMemo, useState } from "react";
 
 type NavItem = NavSection["items"][number];
 
@@ -18,6 +18,49 @@ export interface DashboardSidebarPanelProps {
   dashboardHome: string;
   /** Called after a link is clicked (used by the mobile drawer to close itself). */
   onNavigate?: () => void;
+}
+
+/* ------------------------------------------------------------------ */
+/* Icon wrapper — declared outside render, so no component is created   */
+/* during render (fixes react-hooks/static-components)                  */
+/* ------------------------------------------------------------------ */
+function NavIcon({
+  name,
+  className,
+}: {
+  name: NavItem["icon"];
+  className?: string;
+}) {
+  return createElement(getIconComponent(name), { className });
+}
+
+/* ------------------------------------------------------------------ */
+/* User avatar — picture with fallback to the first letter              */
+/* ------------------------------------------------------------------ */
+function UserAvatar({
+  name,
+  picture,
+}: {
+  name: string;
+  picture?: string | null;
+}) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = !!picture && failedSrc !== picture;
+
+  return showImage ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={picture}
+      alt={name}
+      referrerPolicy="no-referrer"
+      onError={() => setFailedSrc(picture)}
+      className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-white/15"
+    />
+  ) : (
+    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-300 to-teal-500 text-base font-bold text-[#04110d] shadow-[0_4px_14px_-2px_rgba(16,185,129,0.5)]">
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -32,8 +75,6 @@ const NavLink = memo(function NavLink({
   isActive: boolean;
   onNavigate?: () => void;
 }) {
-  const Icon = getIconComponent(item.icon);
-
   return (
     <Link
       href={item.href}
@@ -55,7 +96,8 @@ const NavLink = memo(function NavLink({
         />
       )}
 
-      <Icon
+      <NavIcon
+        name={item.icon}
         className={cn(
           "h-[18px] w-[18px] shrink-0 transition-colors duration-200",
           isActive
@@ -112,8 +154,6 @@ const DashboardSidebarPanel = ({
     }
     return best;
   }, [navItems, pathname]);
-
-  const initial = userInfo.name.charAt(0).toUpperCase();
 
   return (
     <div className="relative isolate flex h-full min-h-0 flex-col overflow-hidden bg-[#07110f]">
@@ -182,11 +222,13 @@ const DashboardSidebarPanel = ({
         ))}
       </nav>
 
+      {/* USER */}
       <div className="shrink-0 border-t border-white/[0.06] p-4">
         <div className="flex items-center gap-3 rounded-2xl border border-white/[0.07] bg-white/[0.03] p-3 backdrop-blur-sm">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-300 to-teal-500 text-base font-bold text-[#04110d] shadow-[0_4px_14px_-2px_rgba(16,185,129,0.5)]">
-            {initial}
-          </div>
+          <UserAvatar
+            name={userInfo.name}
+            picture={(userInfo as { profilePicture?: string | null }).profilePicture}
+          />
 
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-white">

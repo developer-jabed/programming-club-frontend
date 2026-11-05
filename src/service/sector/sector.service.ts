@@ -2,7 +2,7 @@
 "use server";
 
 import { serverFetch } from "@/lib/server-fetch";
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
 
 // ─────────────────────────────────────────────────────────────
 // Get All Sectors
@@ -78,14 +78,43 @@ export async function getSectorById(id: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Create Sector
-// ─────────────────────────────────────────────────────────────
+
 export async function createSector(_prevState: any, formData: FormData) {
   try {
+    const name = (formData.get("name") as string)?.trim();
+
+    if (!name || name.length < 2) {
+      return {
+        success: false,
+        message: "Sector name is required (min 2 characters)",
+        errors: { name: "Name is required" },
+      };
+    }
+
+    // Helper to make a valid slug
+    const makeSlug = (text: string) =>
+      text
+        .toLowerCase()
+        .trim()
+        .replace(/[^\w\s-]/g, "")   // remove special chars
+        .replace(/[\s_-]+/g, "-")    // spaces/underscores → hyphen
+        .replace(/^-+|-+$/g, "");    // trim leading/trailing hyphens
+
+    const rawSlug = (formData.get("slug") as string)?.trim();
+    const slug = rawSlug ? makeSlug(rawSlug) : makeSlug(name);
+
+    // Extra safety
+    if (!slug) {
+      return {
+        success: false,
+        message: "Could not generate a valid slug",
+        errors: { slug: "Invalid slug" },
+      };
+    }
+
     const payload = {
-      name: formData.get("name") as string,
-      slug: (formData.get("slug") as string) || undefined,
+      name,
+      slug,
       description: (formData.get("description") as string) || undefined,
       icon: (formData.get("icon") as string) || undefined,
       color: (formData.get("color") as string) || undefined,
@@ -93,13 +122,7 @@ export async function createSector(_prevState: any, formData: FormData) {
       isActive: formData.get("isActive") !== "false",
     };
 
-    if (!payload.name) {
-      return {
-        success: false,
-        message: "Sector name is required",
-        errors: { name: "Name is required" },
-      };
-    }
+    console.log("[createSector] payload →", JSON.stringify(payload, null, 2));
 
     const response = await serverFetch.post("/sectors", {
       body: JSON.stringify(payload),
@@ -107,10 +130,11 @@ export async function createSector(_prevState: any, formData: FormData) {
     });
 
     const result = await response.json();
+    console.log("[createSector] backend response →", JSON.stringify(result, null, 2));
 
     if (result.success) {
-      revalidateTag("sectors-list", "max");
-      revalidateTag("admin-dashboard", "max");
+      updateTag("sectors-list");
+      updateTag("admin-dashboard");
       return {
         success: true,
         message: result.message || "Sector created successfully!",
@@ -118,10 +142,16 @@ export async function createSector(_prevState: any, formData: FormData) {
       };
     }
 
+    // Better error message from backend
+    const backendError =
+      result.error?.[0]?.message ||
+      result.message ||
+      "Failed to create sector";
+
     return {
       success: false,
-      message: result.message || "Failed to create sector",
-      errors: result.errors || {},
+      message: backendError,
+      errors: result.errors || result.error || {},
     };
   } catch (error: any) {
     console.error("[createSector]", error);
@@ -134,7 +164,6 @@ export async function createSector(_prevState: any, formData: FormData) {
     };
   }
 }
-
 // ─────────────────────────────────────────────────────────────
 // Update Sector
 // ─────────────────────────────────────────────────────────────
@@ -155,6 +184,15 @@ export async function updateSector(
       payload.order = Number(formData.get("order"));
     }
 
+    if (formData.get("slug")) {
+      const raw = (formData.get("slug") as string).trim();
+      payload.slug = raw
+        .toLowerCase()
+        .replace(/[^\w\s-]/g, "")
+        .replace(/[\s_-]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+    }
+
     if (formData.get("isActive") !== null) {
       payload.isActive = formData.get("isActive") === "true";
     }
@@ -167,8 +205,8 @@ export async function updateSector(
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("sectors-list", "max");
-      revalidateTag(`sector-${id}`, "max");
+      updateTag("sectors-list");
+      updateTag(`sector-${id}`);
       return {
         success: true,
         message: result.message || "Sector updated successfully!",
@@ -202,8 +240,8 @@ export async function deleteSector(id: string) {
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("sectors-list", "max");
-      revalidateTag("admin-dashboard", "max");
+      updateTag("sectors-list");
+      updateTag("admin-dashboard");
       return {
         success: true,
         message: result.message || "Sector deleted successfully!",
@@ -235,9 +273,10 @@ export async function joinSector(id: string) {
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("sectors-list", "max");
-      revalidateTag(`sector-${id}`, "max");
-      revalidateTag("user-info", "max");
+      updateTag("sectors-list");
+      updateTag(`sector-${id}`);
+      updateTag(`sector-${id}-members`);
+      updateTag("user-info");
       return {
         success: true,
         message: result.message || "Joined sector successfully!",
@@ -269,9 +308,10 @@ export async function leaveSector(id: string) {
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("sectors-list", "max");
-      revalidateTag(`sector-${id}`, "max");
-      revalidateTag("user-info", "max");
+      updateTag("sectors-list");
+      updateTag(`sector-${id}`);
+      updateTag(`sector-${id}-members`);
+      updateTag("user-info");
       return {
         success: true,
         message: result.message || "Left sector successfully!",

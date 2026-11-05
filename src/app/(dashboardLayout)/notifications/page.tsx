@@ -2,7 +2,6 @@ import { getMyNotifications, getUnreadCount } from "@/service/notification/notif
 import NotificationsClient from "@/components/modules/notifications/NotificationsClient";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 15;
 
 export default async function NotificationsPage() {
   const [notifsRes, countRes] = await Promise.all([

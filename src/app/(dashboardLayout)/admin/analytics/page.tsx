@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import {
   getDashboardStats,
   getRecentActivities,
@@ -9,18 +10,34 @@ import {
 import AnalyticsClient from "@/components/modules/analytics/AnalyticsClient";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 60;
 
 export default async function AnalyticsPage() {
-  const [statsRes, activitiesRes, leaderboardRes, projectStatsRes, growthRes, sectorStatsRes] =
-    await Promise.all([
-      getDashboardStats(),
-      getRecentActivities(),
-      getLeaderboard(),
-      getProjectStats(),
-      getMonthlyGrowth(),
-      getSectorStats(),
-    ]);
+  const [
+    statsRes,
+    activitiesRes,
+    leaderboardRes,
+    projectStatsRes,
+    growthRes,
+    sectorStatsRes,
+  ] = await Promise.all([
+    getDashboardStats(),
+    getRecentActivities(),
+    getLeaderboard(),
+    getProjectStats(),
+    getMonthlyGrowth(),
+    getSectorStats(),
+  ]);
+
+  const failed = [
+    ["stats", statsRes],
+    ["activities", activitiesRes],
+    ["leaderboard", leaderboardRes],
+    ["project stats", projectStatsRes],
+    ["growth", growthRes],
+    ["sector stats", sectorStatsRes],
+  ]
+    .filter(([, r]: any) => !r.success)
+    .map(([name]) => name as string);
 
   return (
     <div className="space-y-6">
@@ -40,6 +57,7 @@ export default async function AnalyticsPage() {
         projectStats={projectStatsRes.success ? projectStatsRes.data : null}
         growth={growthRes.success ? growthRes.data : null}
         sectorStats={sectorStatsRes.success ? sectorStatsRes.data : null}
+        failed={failed}
       />
     </div>
   );

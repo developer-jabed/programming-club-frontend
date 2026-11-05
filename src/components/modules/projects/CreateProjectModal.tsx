@@ -1,46 +1,47 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useState } from "react";
+import { useRouter } from "next/navigation";
 import { createProject } from "@/service/project/project.service";
 import { Plus, X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import ProjectFormFields from "./ProjectFormFields";
 
-interface Props {
-  sectors: any[];
-}
+type ProjectState = Awaited<ReturnType<typeof createProject>> | null;
 
-export default function CreateProjectModal({ sectors }: Props) {
-  const [open, setOpen] = useState(false);
-  const [state, formAction, isPending] = useActionState(createProject, null);
+function CreateForm({
+  sectors,
+  onClose,
+}: {
+  sectors: { id: string; name: string }[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
 
-  useEffect(() => {
-    if (state?.success) {
-      toast.success(state.message || "Project created!");
-      setOpen(false);
-    } else if (state?.success === false) {
-      toast.error(state.message || "Failed to create project");
-    }
-  }, [state]);
+  const [, formAction, isPending] = useActionState(
+    async (prev: ProjectState, formData: FormData): Promise<ProjectState> => {
+      const result = await createProject(prev, formData);
 
-  if (!open) {
-    return (
-      <button
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:brightness-110 transition glow-primary"
-      >
-        <Plus className="h-4 w-4" />
-        New Project
-      </button>
-    );
-  }
+      if (result?.success) {
+        toast.success(result.message || "Project created!");
+        router.refresh();
+        onClose();
+      } else if (result?.success === false) {
+        toast.error(result.message || "Failed to create project");
+      }
+
+      return result;
+    },
+    null as ProjectState
+  );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-background/70 backdrop-blur-sm"
-        onClick={() => setOpen(false)}
+        onClick={onClose}
       />
-      <div className="relative w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl overflow-hidden">
+      <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-border bg-card shadow-2xl">
         <div className="h-1 bg-gradient-to-r from-primary via-primary/70 to-accent" />
         <div className="flex items-center justify-between p-5 border-b border-border">
           <div>
@@ -50,7 +51,7 @@ export default function CreateProjectModal({ sectors }: Props) {
             </p>
           </div>
           <button
-            onClick={() => setOpen(false)}
+            onClick={onClose}
             className="rounded-lg p-2 hover:bg-muted transition"
           >
             <X className="h-4 w-4" />
@@ -58,38 +59,12 @@ export default function CreateProjectModal({ sectors }: Props) {
         </div>
 
         <form action={formAction} className="p-5 space-y-4">
-          <Field label="Title" name="title" required placeholder="Awesome project name" />
-          <Field
-            label="Description"
-            name="description"
-            as="textarea"
-            placeholder="What is this project about?"
-          />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Status" name="status" as="select" options={[
-              { value: "OPEN", label: "Open" },
-              { value: "DRAFT", label: "Draft" },
-              { value: "IN_PROGRESS", label: "In Progress" },
-            ]} />
-            <Field
-              label="Sector"
-              name="sectorId"
-              as="select"
-              options={[
-                { value: "", label: "None" },
-                ...sectors.map((s) => ({ value: s.id, label: s.name })),
-              ]}
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Max Members" name="maxMembers" type="number" placeholder="Optional" />
-            <Field label="Tags" name="tags" placeholder="react, node, api" />
-          </div>
+          <ProjectFormFields sectors={sectors} />
 
           <div className="flex justify-end gap-2 pt-2">
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={onClose}
               className="rounded-xl border border-border px-4 py-2 text-sm hover:bg-muted transition"
             >
               Cancel
@@ -109,51 +84,24 @@ export default function CreateProjectModal({ sectors }: Props) {
   );
 }
 
-function Field({
-  label,
-  name,
-  required,
-  placeholder,
-  type = "text",
-  as,
-  options,
+export default function CreateProjectModal({
+  sectors,
 }: {
-  label: string;
-  name: string;
-  required?: boolean;
-  placeholder?: string;
-  type?: string;
-  as?: "textarea" | "select";
-  options?: { value: string; label: string }[];
+  sectors: { id: string; name: string }[];
 }) {
-  const base =
-    "w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition";
+  const [open, setOpen] = useState(false);
 
   return (
-    <div className="space-y-1.5">
-      <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-        {label}
-        {required && <span className="text-destructive ml-0.5">*</span>}
-      </label>
-      {as === "textarea" ? (
-        <textarea name={name} placeholder={placeholder} rows={3} className={base} />
-      ) : as === "select" ? (
-        <select name={name} className={base} defaultValue={options?.[0]?.value}>
-          {options?.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      ) : (
-        <input
-          name={name}
-          type={type}
-          required={required}
-          placeholder={placeholder}
-          className={base}
-        />
-      )}
-    </div>
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-2 rounded-xl bg-primary text-primary-foreground px-4 py-2.5 text-sm font-medium hover:brightness-110 transition glow-primary"
+      >
+        <Plus className="h-4 w-4" />
+        New Project
+      </button>
+
+      {open && <CreateForm sectors={sectors} onClose={() => setOpen(false)} />}
+    </>
   );
 }

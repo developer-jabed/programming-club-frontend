@@ -2,7 +2,14 @@
 "use server";
 
 import { serverFetch } from "@/lib/server-fetch";
-import { revalidateTag } from "next/cache";
+import { updateTag } from "next/cache";
+
+// "2026-11-10" -> "2026-11-10T00:00:00.000Z" (backends usually expect full ISO)
+function toIsoDate(value: FormDataEntryValue | null): string | undefined {
+  if (!value || typeof value !== "string") return undefined;
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? undefined : d.toISOString();
+}
 
 // ─────────────────────────────────────────────────────────────
 // Get All Projects
@@ -31,6 +38,78 @@ export async function getAllProjects(query?: string) {
     };
   } catch (error: any) {
     console.error("[getAllProjects]", error);
+    return {
+      success: false,
+      message:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
+      data: [],
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Get My Projects (owned by me)
+// ─────────────────────────────────────────────────────────────
+export async function getMyProjects(query?: string) {
+  try {
+    const response = await serverFetch.get(
+      `/projects/my${query ? `?${query}` : ""}`,
+      { next: { tags: ["my-projects"] } }
+    );
+
+    const result = await response.json();
+
+    if (result.success) {
+      return { success: true, data: result.data, meta: result.meta };
+    }
+
+    return {
+      success: false,
+      message: result.message || "Failed to fetch your projects",
+      data: [],
+    };
+  } catch (error: any) {
+    console.error("[getMyProjects]", error);
+    return {
+      success: false,
+      message:
+        process.env.NODE_ENV === "development"
+          ? error.message
+          : "Something went wrong",
+      data: [],
+    };
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// Get Joined Projects (projects I am an ACTIVE member of)
+// ─────────────────────────────────────────────────────────────
+export async function getJoinedProjects(query?: string) {
+  try {
+    const response = await serverFetch.get(
+      `/projects/joined${query ? `?${query}` : ""}`,
+      { next: { tags: ["joined-projects"] } }
+    );
+
+    const result = await response.json();
+
+    if (result.success) {
+      return {
+        success: true,
+        data: result.data,
+        meta: result.meta,
+      };
+    }
+
+    return {
+      success: false,
+      message: result.message || "Failed to fetch joined projects",
+      data: [],
+    };
+  } catch (error: any) {
+    console.error("[getJoinedProjects]", error);
     return {
       success: false,
       message:
@@ -89,15 +168,15 @@ export async function createProject(_prevState: any, formData: FormData) {
       : [];
 
     const payload = {
-      title: formData.get("title") as string,
+      title: ((formData.get("title") as string) || "").trim(),
       description: (formData.get("description") as string) || undefined,
       status: (formData.get("status") as string) || "OPEN",
       isPublic: formData.get("isPublic") !== "false",
       maxMembers: formData.get("maxMembers")
         ? Number(formData.get("maxMembers"))
         : undefined,
-      startDate: (formData.get("startDate") as string) || undefined,
-      endDate: (formData.get("endDate") as string) || undefined,
+      startDate: toIsoDate(formData.get("startDate")),
+      endDate: toIsoDate(formData.get("endDate")),
       tags,
       sectorId: (formData.get("sectorId") as string) || undefined,
     };
@@ -118,14 +197,22 @@ export async function createProject(_prevState: any, formData: FormData) {
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("projects-list", "max");
-      revalidateTag("admin-dashboard", "max");
+      updateTag("projects-list");
+      updateTag("my-projects");
+      updateTag("joined-projects");
+      updateTag("admin-dashboard");
       return {
         success: true,
         message: result.message || "Project created successfully!",
         data: result.data,
       };
     }
+
+    // Shows the real reason the backend rejected the request
+    console.error("[createProject] backend rejected:", {
+      payload,
+      result: JSON.stringify(result),
+    });
 
     return {
       success: false,
@@ -168,8 +255,10 @@ export async function updateProject(
       payload.maxMembers = Number(formData.get("maxMembers"));
     }
 
-    if (formData.get("startDate")) payload.startDate = formData.get("startDate");
-    if (formData.get("endDate")) payload.endDate = formData.get("endDate");
+    const startDate = toIsoDate(formData.get("startDate"));
+    const endDate = toIsoDate(formData.get("endDate"));
+    if (startDate) payload.startDate = startDate;
+    if (endDate) payload.endDate = endDate;
 
     const tagsRaw = formData.get("tags") as string;
     if (tagsRaw !== null) {
@@ -187,14 +276,21 @@ export async function updateProject(
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("projects-list", "max");
-      revalidateTag(`project-${id}`, "max");
+      updateTag("projects-list");
+      updateTag("my-projects");
+      updateTag("joined-projects");
+      updateTag(`project-${id}`);
       return {
         success: true,
         message: result.message || "Project updated successfully!",
         data: result.data,
       };
     }
+
+    console.error("[updateProject] backend rejected:", {
+      payload,
+      result: JSON.stringify(result),
+    });
 
     return {
       success: false,
@@ -222,8 +318,11 @@ export async function deleteProject(id: string) {
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag("projects-list", "max");
-      revalidateTag("admin-dashboard", "max");
+      updateTag("projects-list");
+      updateTag("my-projects");
+      updateTag("joined-projects");
+      updateTag(`project-${id}`);
+      updateTag("admin-dashboard");
       return {
         success: true,
         message: result.message || "Project deleted successfully!",
@@ -255,8 +354,9 @@ export async function requestJoinProject(id: string) {
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag(`project-${id}`, "max");
-      revalidateTag("projects-list", "max");
+      updateTag(`project-${id}`);
+      updateTag("projects-list");
+      updateTag("joined-projects");
       return {
         success: true,
         message: result.message || "Join request sent successfully!",
@@ -280,7 +380,7 @@ export async function requestJoinProject(id: string) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Handle Member Request (Accept / Reject)
+// Handle Member Request (Accept / Reject / Leave)
 // ─────────────────────────────────────────────────────────────
 export async function handleProjectMember(
   projectId: string,
@@ -299,8 +399,9 @@ export async function handleProjectMember(
     const result = await response.json();
 
     if (result.success) {
-      revalidateTag(`project-${projectId}`, "max");
-      revalidateTag("projects-list", "max");
+      updateTag(`project-${projectId}`);
+      updateTag("projects-list");
+      updateTag("joined-projects");
       return {
         success: true,
         message: result.message || "Member status updated successfully!",

@@ -27,13 +27,13 @@ export const getUserInfo = async (): Promise<UserInfo | null> => {
       id: user.id,
       name: user.name || "Unknown User",
       email: user.email,
-      role: user.role, // ADMIN | MODERATOR | MEMBER
+      role: user.role, 
       status: user.status,
       profilePicture: user.profilePicture || null,
       phone: user.phone || null,
       lastLoginAt: user.lastLoginAt || null,
       createdAt: user.createdAt,
-      // Optional extra fields (keep only if you still use them)
+    
       roll: user.roll || null,
       semester: user.semester || null,
       shift: user.shift || null,

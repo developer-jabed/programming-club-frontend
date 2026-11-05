@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import { Badge } from "@/components/ui/badge";
@@ -12,141 +13,151 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import {
+  getMyNotifications,
+  getUnreadCount,
+  markAllNotificationsAsRead,
+  markNotificationAsRead,
+} from "@/service/notification/notification.service";
 import { formatDistanceToNow } from "date-fns";
 import {
-  AlertTriangle,
-  Award,
   Bell,
   BellOff,
-  Calendar,
   CheckCheck,
-  Clock,
+  ClipboardCheck,
   FileText,
-  Users,
+  FolderKanban,
+  Layers,
+  Loader2,
 } from "lucide-react";
-import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useState } from "react";
 
-interface Notification {
-  id: string;
-  type: "notice" | "event" | "attendance" | "result" | "assignment" | "alert";
-  title: string;
-  message: string;
-  timestamp: Date;
-  read: boolean;
-}
+const POLL_MS = 30_000;
 
-// Mock data — replace with your API response.
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    type: "notice",
-    title: "New Notice Published",
-    message: "Mid-term Exam Schedule has been published. Check your dashboard.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 15),
-    read: false,
-  },
-  {
-    id: "2",
-    type: "event",
-    title: "Tech Fest 2026",
-    message:
-      "Annual Tech Festival starts from 20th May. Register your team now.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 45),
-    read: false,
-  },
-  {
-    id: "3",
-    type: "attendance",
-    title: "Low Attendance Alert",
-    message: "Your attendance in Data Structure is below 75%. Please improve.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
-    read: true,
-  },
-  {
-    id: "4",
-    type: "result",
-    title: "Semester Result Published",
-    message:
-      "3rd Semester Diploma Result has been declared. View your result now.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 8),
-    read: true,
-  },
-  {
-    id: "5",
-    type: "assignment",
-    title: "Assignment Deadline",
-    message: "Database Management System assignment due tomorrow at 11:59 PM.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 12),
-    read: false,
-  },
-  {
-    id: "6",
-    type: "alert",
-    title: "Class Cancellation",
-    message:
-      "Microprocessor class has been cancelled today due to faculty meeting.",
-    timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-    read: true,
-  },
-];
-
-const TYPE_STYLES: Record<
-  Notification["type"],
-  { icon: typeof Bell; wrap: string }
-> = {
-  notice: {
-    icon: FileText,
-    wrap: "bg-sky-400/10 text-sky-300 ring-sky-400/20",
-  },
-  event: {
-    icon: Calendar,
+// Icon + colour per related entity
+const ENTITY_STYLES: Record<string, { icon: typeof Bell; wrap: string }> = {
+  Project: {
+    icon: FolderKanban,
     wrap: "bg-violet-400/10 text-violet-300 ring-violet-400/20",
   },
-  attendance: {
-    icon: Users,
+  Sector: {
+    icon: Layers,
+    wrap: "bg-sky-400/10 text-sky-300 ring-sky-400/20",
+  },
+  Task: {
+    icon: ClipboardCheck,
     wrap: "bg-amber-400/10 text-amber-300 ring-amber-400/20",
   },
-  result: {
-    icon: Award,
+  TaskSubmission: {
+    icon: ClipboardCheck,
     wrap: "bg-emerald-400/10 text-emerald-300 ring-emerald-400/20",
   },
-  assignment: {
-    icon: Clock,
+  Test: {
+    icon: FileText,
     wrap: "bg-rose-400/10 text-rose-300 ring-rose-400/20",
-  },
-  alert: {
-    icon: AlertTriangle,
-    wrap: "bg-red-400/10 text-red-300 ring-red-400/20",
   },
 };
 
+const DEFAULT_STYLE = {
+  icon: Bell,
+  wrap: "bg-slate-400/10 text-slate-300 ring-slate-400/20",
+};
+
+// ⚠ Adjust these paths to your real routes
+const hrefFor = (n: any): string | null => {
+  if (!n.entityId) return null;
+  switch (n.entityType) {
+    case "Project":
+      return `/projects/${n.entityId}`;
+    case "Sector":
+      return `/sectors/${n.entityId}`;
+    case "Task":
+    case "TaskSubmission":
+      return `/tasks/${n.entityId}`;
+    case "Test":
+      return `/tests/${n.entityId}`;
+    default:
+      return null;
+  }
+};
+
 export default function NotificationDropdown() {
-  const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const router = useRouter();
 
-  const markAsRead = (id: string) =>
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n)),
+  const [open, setOpen] = useState(false);
+  const [count, setCount] = useState(0);
+  const [items, setItems] = useState<any[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const refreshCount = useCallback(async () => {
+    const res = await getUnreadCount();
+    if (res.success) setCount(res.data.count);
+  }, []);
+
+  const loadItems = useCallback(async () => {
+    setLoading(true);
+    const res = await getMyNotifications(
+      "limit=10&sortBy=createdAt&sortOrder=desc",
     );
+    if (res.success) setItems(res.data);
+    setLoading(false);
+  }, []);
 
-  const markAllAsRead = () =>
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+  // Poll the unread count
+  useEffect(() => {
+    const first = setTimeout(refreshCount, 0);
+    const timer = setInterval(refreshCount, POLL_MS);
+    return () => {
+      clearTimeout(first);
+      clearInterval(timer);
+    };
+  }, [refreshCount]);
+
+  // Load the latest items every time the menu opens
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => {
+      loadItems();
+      refreshCount();
+    }, 0);
+    return () => clearTimeout(t);
+  }, [open, loadItems, refreshCount]);
+
+  const openItem = (n: any) => {
+    if (!n.isRead) {
+      setItems((prev) =>
+        prev.map((x) => (x.id === n.id ? { ...x, isRead: true } : x)),
+      );
+      setCount((c) => Math.max(0, c - 1));
+      markNotificationAsRead(n.id);
+    }
+    const href = hrefFor(n);
+    if (href) router.push(href);
+  };
+
+  const markAll = async () => {
+    setItems((prev) => prev.map((x) => ({ ...x, isRead: true })));
+    setCount(0);
+    await markAllNotificationsAsRead();
+  };
 
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
-          aria-label={`Notifications${unreadCount ? `, ${unreadCount} unread` : ""}`}
+          aria-label={`Notifications${count ? `, ${count} unread` : ""}`}
           className="group relative rounded-xl text-slate-300 transition-colors duration-200 hover:bg-white/[0.06] hover:text-white focus-visible:ring-emerald-400/50 data-[state=open]:bg-white/[0.06]"
         >
           <Bell className="h-5 w-5 origin-top transition-transform duration-300 group-hover:rotate-12 group-data-[state=open]:rotate-12 motion-reduce:transform-none" />
-          {unreadCount > 0 && (
+          {count > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-[18px] w-[18px] items-center justify-center">
               <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-300/50 motion-reduce:animate-none" />
               <span className="relative flex h-[18px] w-[18px] items-center justify-center rounded-full bg-amber-400 text-[10px] font-bold text-[#1a1203] ring-2 ring-[#07110f]">
-                {unreadCount > 9 ? "9+" : unreadCount}
+                {count > 9 ? "9+" : count}
               </span>
             </span>
           )}
@@ -162,9 +173,9 @@ export default function NotificationDropdown() {
           <span className="text-base font-semibold text-white">
             Notifications
           </span>
-          {unreadCount > 0 && (
+          {count > 0 && (
             <Badge className="animate-in fade-in zoom-in-90 rounded-full border-0 bg-emerald-400/15 text-emerald-300 duration-300 hover:bg-emerald-400/15">
-              {unreadCount} new
+              {count} new
             </Badge>
           )}
         </DropdownMenuLabel>
@@ -172,28 +183,37 @@ export default function NotificationDropdown() {
         <DropdownMenuSeparator className="bg-white/[0.07]" />
 
         <ScrollArea className="h-[min(380px,60vh)] px-1">
-          {notifications.length === 0 ? (
+          {loading && items.length === 0 ? (
+            <div className="flex flex-col items-center gap-2 p-10 text-sm text-slate-500">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              Loading…
+            </div>
+          ) : items.length === 0 ? (
             <div className="flex flex-col items-center gap-2 p-10 text-sm text-slate-500">
               <BellOff className="h-8 w-8 text-slate-600" />
               No notifications yet
             </div>
           ) : (
             <div className="py-1">
-              {notifications.map((notification, index) => {
-                const { icon: Icon, wrap } = TYPE_STYLES[notification.type];
+              {items.map((n, index) => {
+                const { icon: Icon, wrap } =
+                  ENTITY_STYLES[n.entityType] ?? DEFAULT_STYLE;
+                const read = !!n.isRead;
+                const href = hrefFor(n);
 
                 return (
                   <DropdownMenuItem
-                    key={notification.id}
+                    key={n.id}
                     onSelect={(e) => {
-                      e.preventDefault(); // keep the menu open
-                      markAsRead(notification.id);
+                      // Keep the menu open only when there is nowhere to go
+                      if (!href) e.preventDefault();
+                      openItem(n);
                     }}
-                    style={{ animationDelay: `${index * 45}ms` }}
+                    style={{ animationDelay: `${Math.min(index, 8) * 45}ms` }}
                     className={cn(
                       "mb-1 flex cursor-pointer items-start gap-3.5 rounded-xl p-3 duration-300 animate-in fade-in slide-in-from-top-1 fill-mode-both",
                       "transition-colors focus:bg-white/[0.06] focus:text-slate-100",
-                      notification.read
+                      read
                         ? "bg-transparent opacity-70 hover:opacity-100"
                         : "bg-emerald-400/[0.06]",
                     )}
@@ -212,32 +232,32 @@ export default function NotificationDropdown() {
                         <p
                           className={cn(
                             "text-sm leading-tight text-white",
-                            notification.read ? "font-medium" : "font-semibold",
+                            read ? "font-medium" : "font-semibold",
                           )}
                         >
-                          {notification.title}
+                          {n.title}
                         </p>
                         <span
                           className={cn(
                             "mt-1.5 h-2 w-2 shrink-0 rounded-full bg-gradient-to-br from-emerald-300 to-teal-400 transition-all duration-300",
-                            notification.read
-                              ? "scale-0 opacity-0"
-                              : "scale-100 opacity-100",
+                            read ? "scale-0 opacity-0" : "scale-100 opacity-100",
                           )}
                         />
                       </div>
 
                       <p className="line-clamp-2 text-xs text-slate-400">
-                        {notification.message}
+                        {n.body}
                       </p>
 
                       <time
                         suppressHydrationWarning
                         className="block text-[10px] text-slate-500"
                       >
-                        {formatDistanceToNow(notification.timestamp, {
-                          addSuffix: true,
-                        })}
+                        {n.createdAt
+                          ? formatDistanceToNow(new Date(n.createdAt), {
+                              addSuffix: true,
+                            })
+                          : ""}
                       </time>
                     </div>
                   </DropdownMenuItem>
@@ -251,10 +271,10 @@ export default function NotificationDropdown() {
 
         <div className="flex items-center gap-1 pt-1">
           <DropdownMenuItem
-            disabled={unreadCount === 0}
+            disabled={count === 0}
             onSelect={(e) => {
               e.preventDefault();
-              markAllAsRead();
+              markAll();
             }}
             className="flex-1 cursor-pointer justify-center gap-2 rounded-xl py-2.5 text-sm font-medium text-slate-300 transition-colors duration-200 focus:bg-white/[0.06] focus:text-white"
           >
@@ -262,8 +282,13 @@ export default function NotificationDropdown() {
             Mark all read
           </DropdownMenuItem>
 
-          <DropdownMenuItem className="flex-1 cursor-pointer justify-center rounded-xl py-2.5 text-sm font-semibold text-emerald-300 transition-colors duration-200 focus:bg-emerald-400/10 focus:text-emerald-200">
-            View all
+          <DropdownMenuItem
+            asChild
+            className="flex-1 cursor-pointer justify-center rounded-xl py-2.5 text-sm font-semibold text-emerald-300 transition-colors duration-200 focus:bg-emerald-400/10 focus:text-emerald-200"
+          >
+            <Link href="/notifications" className="justify-center">
+              View all
+            </Link>
           </DropdownMenuItem>
         </div>
       </DropdownMenuContent>

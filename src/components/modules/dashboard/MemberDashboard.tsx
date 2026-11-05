@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 
 import Link from "next/link";
@@ -123,7 +124,7 @@ export default function MemberDashboard({
         {/* Leaderboard + Tasks */}
         <div className="space-y-6">
           <section className="rounded-xl border border-border bg-card p-4">
-            <SectionHeader title="Leaderboard" href="/admin/analytics" icon={<Trophy className="h-4 w-4 text-primary" />} />
+            <SectionHeader title="Leaderboard" href="/leaderboard" icon={<Trophy className="h-4 w-4 text-primary" />} />
             <div className="mt-3 space-y-2">
               {(leaderboard || []).slice(0, 5).map((item: any, i: number) => (
                 <div

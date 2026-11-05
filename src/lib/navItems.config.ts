@@ -13,37 +13,25 @@ export const getCommonNavItems = (role: UserRole): NavSection[] => {
       
         { title: "Dashboard", href: defaultDashboard, icon: "LayoutDashboard", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
         { title: "Portfolio", href: "/portfolio", icon: "User", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
-        { title: "Badges", href: "/badges", icon: "Award", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
+        { title: "Leaderboard", href: "/leaderboard", icon: "Trophy", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
         { title: "Notifications", href: "/notifications", icon: "Bell", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
-      ],
-    },
-    {
-      title: "Settings",
-      items: [
-        { title: "Account", href: "/settings", icon: "Settings", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
       ],
     },
   ];
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Member + Moderator Shared
-// ─────────────────────────────────────────────────────────────────────────────
+
 export const memberNavItems: NavSection[] = [
   {
     title: "Club",
     items: [
-      { title: "Sectors", href: "/sectors", icon: "Layers", roles: ["MEMBER", "MODERATOR"] },
       { title: "Projects", href: "/projects", icon: "FolderKanban", roles: ["MEMBER", "MODERATOR"] },
-      { title: "Tasks", href: "/tasks", icon: "CheckSquare", roles: ["MEMBER", "MODERATOR"] },
       { title: "Tests", href: "/tests", icon: "ClipboardList", roles: ["MEMBER", "MODERATOR"] },
     ],
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Moderator Only (Extra Management)
-// ─────────────────────────────────────────────────────────────────────────────
+
 export const moderatorNavItems: NavSection[] = [
   {
     title: "Manage",
@@ -56,9 +44,7 @@ export const moderatorNavItems: NavSection[] = [
   },
 ];
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Admin (Full Control - Minimal but Complete)
-// ─────────────────────────────────────────────────────────────────────────────
+
 export const adminNavItems: NavSection[] = [
   {
     title: "Administration",
@@ -68,7 +54,6 @@ export const adminNavItems: NavSection[] = [
       { title: "Projects", href: "/admin/projects", icon: "FolderKanban", roles: ["ADMIN"] },
       { title: "Tasks", href: "/admin/tasks", icon: "ListTodo", roles: ["ADMIN"] },
       { title: "Tests", href: "/admin/tests", icon: "ClipboardList", roles: ["ADMIN"] },
-      { title: "Badges", href: "/admin/badges", icon: "Award", roles: ["ADMIN"] },
       { title: "Analytics", href: "/admin/analytics", icon: "BarChart3", roles: ["ADMIN"] },
       { title: "System", href: "/admin/system", icon: "Settings", roles: ["ADMIN"] },
     ],

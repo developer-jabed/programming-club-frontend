@@ -4,23 +4,30 @@
 import { serverFetch } from "@/lib/server-fetch";
 import { revalidateTag } from "next/cache";
 
+const errMsg = (error: any, fallback: string) =>
+  process.env.NODE_ENV === "development" ? error.message : fallback;
+
 // ─────────────────────────────────────────────────────────────
-// Get My Notifications
+// Get My Notifications (never cached: new ones must show up)
 // ─────────────────────────────────────────────────────────────
 export async function getMyNotifications(query?: string) {
   try {
     const response = await serverFetch.get(
       `/notifications${query ? `?${query}` : ""}`,
-      { next: { tags: ["notifications"] } }
+      { cache: "no-store" }
     );
 
     const result = await response.json();
 
     if (result.success) {
+      const list = Array.isArray(result.data)
+        ? result.data
+        : result.data?.data ?? result.data?.notifications ?? [];
+
       return {
         success: true,
-        data: result.data,
-        meta: result.meta,
+        data: list,
+        meta: result.meta ?? result.data?.meta,
       };
     }
 
@@ -33,31 +40,27 @@ export async function getMyNotifications(query?: string) {
     console.error("[getMyNotifications]", error);
     return {
       success: false,
-      message:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Something went wrong",
+      message: errMsg(error, "Something went wrong"),
       data: [],
     };
   }
 }
 
 // ─────────────────────────────────────────────────────────────
-// Get Unread Count
+// Get Unread Count (never cached)
 // ─────────────────────────────────────────────────────────────
 export async function getUnreadCount() {
   try {
     const response = await serverFetch.get("/notifications/unread-count", {
-      next: { tags: ["notifications-count"], revalidate: 30 },
+      cache: "no-store",
     });
 
     const result = await response.json();
 
     if (result.success) {
-      return {
-        success: true,
-        data: result.data,
-      };
+      const raw = result.data;
+      const count = typeof raw === "number" ? raw : Number(raw?.count ?? 0);
+      return { success: true, data: { count } };
     }
 
     return {
@@ -69,10 +72,7 @@ export async function getUnreadCount() {
     console.error("[getUnreadCount]", error);
     return {
       success: false,
-      message:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Something went wrong",
+      message: errMsg(error, "Something went wrong"),
       data: { count: 0 },
     };
   }
@@ -103,10 +103,7 @@ export async function markNotificationAsRead(id: string) {
     console.error("[markNotificationAsRead]", error);
     return {
       success: false,
-      message:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Something went wrong. Please try again.",
+      message: errMsg(error, "Something went wrong. Please try again."),
     };
   }
 }
@@ -136,10 +133,7 @@ export async function markAllNotificationsAsRead() {
     console.error("[markAllNotificationsAsRead]", error);
     return {
       success: false,
-      message:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Something went wrong. Please try again.",
+      message: errMsg(error, "Something went wrong. Please try again."),
     };
   }
 }
@@ -169,10 +163,7 @@ export async function deleteNotification(id: string) {
     console.error("[deleteNotification]", error);
     return {
       success: false,
-      message:
-        process.env.NODE_ENV === "development"
-          ? error.message
-          : "Something went wrong. Please try again.",
+      message: errMsg(error, "Something went wrong. Please try again."),
     };
   }
 }

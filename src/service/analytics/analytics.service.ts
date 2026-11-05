@@ -86,6 +86,8 @@ export async function getLeaderboard() {
 
     const result = await response.json();
 
+    console.log("result", result);
+
     if (result.success) {
       return {
         success: true,

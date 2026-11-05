@@ -1,8 +1,8 @@
 "use client";
 
+import { changePasswordAction } from "@/service";
 import { Loader2, Key, Eye, EyeOff, CheckCircle2, XCircle, ShieldCheck, Lock, AlertCircle } from "lucide-react";
 import { useState, useTransition, useRef } from "react";
-import { changePassword } from "@/service/auth/auth.service";
 
 /* ─── Password strength helper ─── */
 function getStrength(pwd: string): { score: number; label: string; color: string } {
@@ -82,7 +82,7 @@ const ChangePasswordPage = () => {
 
         startTransition(async () => {
             try {
-                const result = await changePassword(null, formData);
+                const result = await changePasswordAction(null, formData);
                 if (result.success) {
                     setSuccess(result.message || "Password changed successfully!");
                     setOldPwd(""); setNewPwd(""); setConfirmPwd("");

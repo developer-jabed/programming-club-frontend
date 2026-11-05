@@ -9,12 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
 import { logoutUser } from "@/service/auth/logoutUser";
 import { UserInfo } from "@/types/userInterface";
 
 import { ChevronDown, KeyRound, Loader2, LogOut, User } from "lucide-react";
 import Link from "next/link";
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 
 interface UserDropdownProps {
   userInfo: UserInfo;
@@ -23,10 +24,48 @@ interface UserDropdownProps {
 const ITEM =
   "cursor-pointer rounded-xl px-3 py-2.5 text-sm text-slate-200 focus:bg-white/[0.06] focus:text-white";
 
+/* Picture with fallback to the first letter (also if the image fails to load) */
+function UserAvatar({
+  name,
+  picture,
+  className,
+  fallbackClassName,
+}: {
+  name: string;
+  picture?: string | null;
+  className?: string;
+  fallbackClassName?: string;
+}) {
+  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  const showImage = !!picture && failedSrc !== picture;
+
+  return showImage ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={picture}
+      alt={name}
+      referrerPolicy="no-referrer"
+      onError={() => setFailedSrc(picture)}
+      className={cn("shrink-0 rounded-xl object-cover", className)}
+    />
+  ) : (
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-300 to-teal-500 font-bold text-[#04110d]",
+        className,
+        fallbackClassName,
+      )}
+    >
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+}
+
 const UserDropdown = ({ userInfo }: UserDropdownProps) => {
   const [isPending, startTransition] = useTransition();
-  const initial = userInfo.name.charAt(0).toUpperCase();
   const role = userInfo.role.toLowerCase();
+  const picture = (userInfo as { profilePicture?: string | null })
+    .profilePicture;
 
   const handleLogout = () =>
     startTransition(async () => {
@@ -40,9 +79,12 @@ const UserDropdown = ({ userInfo }: UserDropdownProps) => {
           variant="ghost"
           className="group flex h-auto items-center gap-3 rounded-xl px-2 py-1.5 text-slate-200 transition-colors duration-200 hover:bg-white/[0.06] hover:text-white data-[state=open]:bg-white/[0.06] md:px-2.5"
         >
-          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-300 to-teal-500 text-sm font-bold text-[#04110d] ring-2 ring-white/10 shadow-[0_4px_14px_-2px_rgba(16,185,129,0.5)]">
-            {initial}
-          </div>
+          <UserAvatar
+            name={userInfo.name}
+            picture={picture}
+            className="h-9 w-9 ring-2 ring-white/10"
+            fallbackClassName="text-sm shadow-[0_4px_14px_-2px_rgba(16,185,129,0.5)]"
+          />
 
           <div className="hidden flex-col items-start leading-tight md:flex">
             <p className="max-w-[140px] truncate text-sm font-semibold text-white">
@@ -62,9 +104,12 @@ const UserDropdown = ({ userInfo }: UserDropdownProps) => {
       >
         <DropdownMenuLabel className="p-3">
           <div className="flex items-center gap-3.5">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-300 to-teal-500 text-xl font-bold text-[#04110d]">
-              {initial}
-            </div>
+            <UserAvatar
+              name={userInfo.name}
+              picture={picture}
+              className="h-12 w-12"
+              fallbackClassName="text-xl"
+            />
 
             <div className="min-w-0 flex-1">
               <p className="truncate text-base font-semibold text-white">

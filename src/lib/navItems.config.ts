@@ -27,6 +27,7 @@ export const memberNavItems: NavSection[] = [
     items: [
       { title: "Projects", href: "/projects", icon: "FolderKanban", roles: ["MEMBER", "MODERATOR"] },
       { title: "Tests", href: "/tests", icon: "ClipboardList", roles: ["MEMBER", "MODERATOR"] },
+      { title: "Report & Requests", href: "/report-requests", icon: "FileText", roles: ["MEMBER", "MODERATOR"] },
     ],
   },
 ];
@@ -56,6 +57,7 @@ export const adminNavItems: NavSection[] = [
       { title: "Tests", href: "/admin/tests", icon: "ClipboardList", roles: ["ADMIN"] },
       { title: "Analytics", href: "/admin/analytics", icon: "BarChart3", roles: ["ADMIN"] },
       { title: "System", href: "/admin/system", icon: "Settings", roles: ["ADMIN"] },
+       { title: "Report & Requests", href: "/admin/report-requests", icon: "FileText", roles: [ "ADMIN"] },
     ],
   },
 ];

@@ -3,9 +3,10 @@
 
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, X } from "lucide-react";
+import { ClipboardPaste, Loader2, Plus, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createTest } from "@/service/test/test.service";
+import { parseQuestions } from "@/lib/parse-questions";
 
 interface Props {
   projects: any[];
@@ -51,6 +52,19 @@ const input =
 const label =
   "text-[11px] font-semibold uppercase tracking-wider text-muted-foreground";
 
+const BULK_PLACEHOLDER = `1. প্রশ্ন এখানে লিখুন?
+ক) অপশন ১  খ) অপশন ২  গ) অপশন ৩  ঘ) অপশন ৪
+উত্তর: খ
+ব্যাখ্যা: কেন খ সঠিক
+
+2. Next question...
+A) Option 1
+B) Option 2
+C) Option 3
+D) Option 4
+Answer: A, C
+Explanation: optional`;
+
 export default function CreateTestModal({
   projects,
   sectors,
@@ -60,6 +74,7 @@ export default function CreateTestModal({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
 
+  // ── basics ──
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [duration, setDuration] = useState("");
@@ -69,6 +84,7 @@ export default function CreateTestModal({
   const [shuffle, setShuffle] = useState("true");
   const [showResult, setShowResult] = useState("true");
 
+  // ── audience ──
   const [targetType, setTargetType] = useState("ALL_MEMBERS");
   const [projectId, setProjectId] = useState("");
   const [sectorId, setSectorId] = useState("");
@@ -77,11 +93,29 @@ export default function CreateTestModal({
   const [memberIdsText, setMemberIdsText] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
 
+  // ── questions ──
   const [questions, setQuestions] = useState<Question[]>(() => [newQuestion()]);
+
+  // ── bulk paste ──
+  const [bulkOpen, setBulkOpen] = useState(false);
+  const [bulkText, setBulkText] = useState("");
+  const [bulkMarks, setBulkMarks] = useState("1");
+
+  const parsed = useMemo(() => parseQuestions(bulkText), [bulkText]);
+  const missingAnswers = useMemo(
+    () =>
+      parsed
+        .map((p, i) => (p.warning ? i + 1 : null))
+        .filter((n): n is number => n !== null),
+    [parsed]
+  );
 
   const totalMarks = useMemo(
     () =>
-      questions.reduce((s, q) => s + (Number(q.marks) > 0 ? Number(q.marks) : 1), 0),
+      questions.reduce(
+        (s, q) => s + (Number(q.marks) > 0 ? Number(q.marks) : 1),
+        0
+      ),
     [questions]
   );
 
@@ -157,6 +191,34 @@ export default function CreateTestModal({
     setMemberIds((ids) =>
       ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]
     );
+
+  // ── bulk import ──
+  const importBulk = () => {
+    if (!parsed.length)
+      return toast.error("No questions found in the pasted text");
+
+    const added: Question[] = parsed.map((p) => ({
+      id: crypto.randomUUID(),
+      text: p.text,
+      marks: bulkMarks,
+      explanation: p.explanation,
+      multiple: p.multiple,
+      options: p.options,
+    }));
+
+    setQuestions((qs) => {
+      // drop the empty starter question if untouched
+      const isEmptyStarter =
+        qs.length === 1 &&
+        !qs[0].text.trim() &&
+        qs[0].options.every((o) => !o.text.trim());
+      return [...(isEmptyStarter ? [] : qs), ...added];
+    });
+
+    setBulkText("");
+    setBulkOpen(false);
+    toast.success(`${added.length} questions added`);
+  };
 
   // ── submit ──
   const submit = (e: React.FormEvent) => {
@@ -256,7 +318,11 @@ export default function CreateTestModal({
               {totalMarks} total marks · saved as draft
             </p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-2 hover:bg-muted">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg p-2 hover:bg-muted"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -296,7 +362,11 @@ export default function CreateTestModal({
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Total marks</label>
-                <input value={totalMarks} readOnly className={`${input} opacity-70`} />
+                <input
+                  value={totalMarks}
+                  readOnly
+                  className={`${input} opacity-70`}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Passing marks</label>
@@ -458,15 +528,70 @@ export default function CreateTestModal({
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Questions</h3>
-              <button
-                type="button"
-                onClick={() => setQuestions((qs) => [...qs, newQuestion()])}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Add question
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBulkOpen((v) => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground"
+                >
+                  <ClipboardPaste className="h-3.5 w-3.5" />
+                  Bulk paste
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setQuestions((qs) => [...qs, newQuestion()])}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium hover:bg-muted"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Add question
+                </button>
+              </div>
             </div>
+
+            {bulkOpen && (
+              <div className="space-y-3 rounded-xl border border-primary/40 bg-primary/5 p-4">
+                <textarea
+                  value={bulkText}
+                  onChange={(e) => setBulkText(e.target.value)}
+                  rows={10}
+                  placeholder={BULK_PLACEHOLDER}
+                  className={`${input} font-mono`}
+                />
+                <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+                  <div className="space-y-1">
+                    <p className="font-medium">
+                      {parsed.length} question{parsed.length !== 1 && "s"}{" "}
+                      detected
+                    </p>
+                    {missingAnswers.length > 0 && (
+                      <p className="text-destructive">
+                        No answer found in: {missingAnswers.join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-2">
+                      Marks each
+                      <input
+                        type="number"
+                        min={1}
+                        value={bulkMarks}
+                        onChange={(e) => setBulkMarks(e.target.value)}
+                        className="w-16 rounded-lg border border-border bg-card px-2 py-1"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      onClick={importBulk}
+                      disabled={!parsed.length}
+                      className="rounded-lg bg-primary px-4 py-1.5 font-medium text-primary-foreground disabled:opacity-50"
+                    >
+                      Add {parsed.length || ""} questions
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {questions.map((q, qi) => (
               <div
@@ -560,7 +685,9 @@ export default function CreateTestModal({
 
                 <input
                   value={q.explanation}
-                  onChange={(e) => patchQ(q.id, { explanation: e.target.value })}
+                  onChange={(e) =>
+                    patchQ(q.id, { explanation: e.target.value })
+                  }
                   placeholder="Explanation (optional, shown with results)"
                   className={`${input} ml-6 w-[calc(100%-1.5rem)]`}
                 />

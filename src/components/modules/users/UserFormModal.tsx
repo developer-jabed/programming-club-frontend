@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ImagePlus, Loader2, Trash2, X } from "lucide-react";
+import { Eye, EyeOff, ImagePlus, Loader2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { createUser, updateUser } from "@/service/user/user.service";
 
@@ -52,6 +52,7 @@ export default function UserFormModal({
     presentAddress: user?.presentAddress ?? "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   // Profile picture state
   const fileRef = useRef<HTMLInputElement>(null);
@@ -152,7 +153,8 @@ export default function UserFormModal({
     ) : null;
 
   // What the avatar shows: new preview > existing picture (unless removed) > initial
-  const shownPicture = preview ?? (removePicture ? null : user?.profilePicture ?? null);
+  const shownPicture =
+    preview ?? (removePicture ? null : user?.profilePicture ?? null);
   const initial = (f.name?.[0] || "?").toUpperCase();
   const hasExisting = editing && !!user?.profilePicture;
 
@@ -285,16 +287,33 @@ export default function UserFormModal({
               <label className={label}>
                 {editing ? "New password" : "Password *"}
               </label>
-              <input
-                value={f.password}
-                onChange={set("password")}
-                type="password"
-                required={!editing}
-                minLength={6}
-                autoComplete="new-password"
-                className={input}
-                placeholder={editing ? "Leave blank to keep current" : "Min 6 characters"}
-              />
+              <div className="relative">
+                <input
+                  value={f.password}
+                  onChange={set("password")}
+                  type={showPassword ? "text" : "password"}
+                  required={!editing}
+                  minLength={6}
+                  autoComplete="new-password"
+                  className={`${input} pr-10`}
+                  placeholder={
+                    editing ? "Leave blank to keep current" : "Min 6 characters"
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((s) => !s)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  tabIndex={-1}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
               {err("password")}
             </div>
             <div className="grid grid-cols-2 gap-3">
@@ -309,7 +328,11 @@ export default function UserFormModal({
               {editing && (
                 <div className="space-y-1.5">
                   <label className={label}>Status</label>
-                  <select value={f.status} onChange={set("status")} className={input}>
+                  <select
+                    value={f.status}
+                    onChange={set("status")}
+                    className={input}
+                  >
                     <option value="ACTIVE">Active</option>
                     <option value="INACTIVE">Inactive</option>
                   </select>
@@ -323,11 +346,19 @@ export default function UserFormModal({
             <div className="grid gap-4 sm:grid-cols-3">
               <div className="space-y-1.5">
                 <label className={label}>Phone</label>
-                <input value={f.phone} onChange={set("phone")} className={input} />
+                <input
+                  value={f.phone}
+                  onChange={set("phone")}
+                  className={input}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Roll</label>
-                <input value={f.roll} onChange={set("roll")} className={input} />
+                <input
+                  value={f.roll}
+                  onChange={set("roll")}
+                  className={input}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Registration</label>
@@ -351,7 +382,11 @@ export default function UserFormModal({
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Shift</label>
-                <select value={f.shift} onChange={set("shift")} className={input}>
+                <select
+                  value={f.shift}
+                  onChange={set("shift")}
+                  className={input}
+                >
                   <option value="">—</option>
                   {SHIFTS.map((s) => (
                     <option key={s.value} value={s.value}>
@@ -362,7 +397,11 @@ export default function UserFormModal({
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Group</label>
-                <input value={f.group} onChange={set("group")} className={input} />
+                <input
+                  value={f.group}
+                  onChange={set("group")}
+                  className={input}
+                />
               </div>
               <div className="space-y-1.5">
                 <label className={label}>Blood group</label>

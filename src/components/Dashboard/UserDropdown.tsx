@@ -129,7 +129,7 @@ const UserDropdown = ({ userInfo }: UserDropdownProps) => {
 
         <div className="py-1">
           <DropdownMenuItem asChild className={ITEM}>
-            <Link href="/my-profile" className="flex items-center gap-3">
+            <Link href="/portfolio" className="flex items-center gap-3">
               <User className="h-4 w-4 text-slate-400" />
               <span>View Profile</span>
             </Link>

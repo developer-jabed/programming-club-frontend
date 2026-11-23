@@ -10,9 +10,10 @@ export const getCommonNavItems = (role: UserRole): NavSection[] => {
   return [
     {
       items: [
-      
+
         { title: "Dashboard", href: defaultDashboard, icon: "LayoutDashboard", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
         { title: "Portfolio", href: "/portfolio", icon: "User", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
+        { title: "Change Password", href: "/change-password", icon: "Lock", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
         { title: "Leaderboard", href: "/leaderboard", icon: "Trophy", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
         { title: "Notifications", href: "/notifications", icon: "Bell", roles: ["MEMBER", "MODERATOR", "ADMIN"] },
       ],
@@ -27,6 +28,7 @@ export const memberNavItems: NavSection[] = [
     items: [
       { title: "Projects", href: "/projects", icon: "FolderKanban", roles: ["MEMBER", "MODERATOR"] },
       { title: "Tests", href: "/tests", icon: "ClipboardList", roles: ["MEMBER", "MODERATOR"] },
+      { title: "Fees", href: "/fees", icon: "DollarSign", roles: ["MEMBER", "MODERATOR"] },
       { title: "Report & Requests", href: "/report-requests", icon: "FileText", roles: ["MEMBER", "MODERATOR"] },
     ],
   },
@@ -55,9 +57,10 @@ export const adminNavItems: NavSection[] = [
       { title: "Projects", href: "/admin/projects", icon: "FolderKanban", roles: ["ADMIN"] },
       { title: "Tasks", href: "/admin/tasks", icon: "ListTodo", roles: ["ADMIN"] },
       { title: "Tests", href: "/admin/tests", icon: "ClipboardList", roles: ["ADMIN"] },
+      { title: "Fees", href: "/admin/fees", icon: "DollarSign", roles: ["ADMIN"] },
       { title: "Analytics", href: "/admin/analytics", icon: "BarChart3", roles: ["ADMIN"] },
       { title: "System", href: "/admin/system", icon: "Settings", roles: ["ADMIN"] },
-       { title: "Report & Requests", href: "/admin/report-requests", icon: "FileText", roles: [ "ADMIN"] },
+      { title: "Report & Requests", href: "/admin/report-requests", icon: "FileText", roles: ["ADMIN"] },
     ],
   },
 ];

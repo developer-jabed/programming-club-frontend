@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { getUserInfo } from "@/service/auth/getUserInfo";
+import EditProfileForm from "../../portfolio/updatePortfolio";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,10 @@ const Page = async () => {
     { icon: Mail, value: user.email },
     { icon: Phone, value: user.phone },
     { icon: MapPin, value: user.presentAddress },
-    { icon: Droplet, value: user.bloodGroup ? `Blood group: ${user.bloodGroup}` : null },
+    {
+      icon: Droplet,
+      value: user.bloodGroup ? `Blood group: ${user.bloodGroup}` : null,
+    },
   ].filter((c) => c.value);
 
   const academic = [
@@ -62,13 +66,15 @@ const Page = async () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          Portfolio
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your profile overview
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Portfolio
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your profile overview
+          </p>
+        </div>
       </div>
 
       {/* Header card */}
@@ -116,6 +122,24 @@ const Page = async () => {
                 ))}
               </ul>
             )}
+
+            <div className="mt-4 flex justify-center sm:justify-start">
+              <EditProfileForm
+                user={{
+                  id: user.id,
+                  name: user.name,
+                  phone: user.phone,
+                  roll: user.roll,
+                  semester: user.semester,
+                  shift: user.shift,
+                  group: user.group,
+                  registration: user.registration,
+                  bloodGroup: user.bloodGroup,
+                  presentAddress: user.presentAddress,
+                  profilePicture: user.profilePicture,
+                }}
+              />
+            </div>
           </div>
         </div>
       </section>

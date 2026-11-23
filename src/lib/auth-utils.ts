@@ -24,7 +24,7 @@ export const commonProtectedRoutes: RouteConfig = {
     "/notifications",
     "/settings",
     "/change-password",
-    "/my-profile",
+    "/portfolio",
   ],
   patterns: [
     /^\/sectors(\/.*)?$/,

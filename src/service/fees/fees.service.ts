@@ -32,6 +32,23 @@ const jsonInit = (payload: unknown) => ({
 });
 
 /**
+ * Safe JSON parse: an empty or non-JSON body returns null instead of throwing,
+ * so the caller can show the real HTTP status.
+ */
+const parse = async (response: Response): Promise<any | null> => {
+  const text = await response.text();
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    return null;
+  }
+};
+
+const badResponse = (response: Response, result: any, fallback: string) =>
+  result?.message || `${fallback} (status ${response.status})`;
+
+/**
  * Caching policy:
  *  - User-scoped data (dues, payments, summaries) is `no-store`.
  *  - Active categories are cached for 5 minutes.
@@ -54,14 +71,15 @@ async function getList(
       `${BASE}${path}${toQuery(query)}`,
       init
     );
-    const result = await response.json();
+    const result = await parse(response);
 
-    if (result.success) {
+    if (result?.success) {
       return { success: true, data: result.data ?? [], meta: result.meta };
     }
+    console.error(`[fees:${label}] bad response`, response.status, result);
     return {
       success: false,
-      message: result.message || `Failed to fetch ${label}`,
+      message: badResponse(response, result, `Failed to fetch ${label}`),
       data: [],
     };
   } catch (error: any) {
@@ -82,12 +100,13 @@ async function getOne(
 ) {
   try {
     const response = await serverFetch.get(`${BASE}${path}`, init);
-    const result = await response.json();
+    const result = await parse(response);
 
-    if (result.success) return { success: true, data: result.data };
+    if (result?.success) return { success: true, data: result.data };
+    console.error(`[fees:${label}] bad response`, response.status, result);
     return {
       success: false,
-      message: result.message || `Failed to fetch ${label}`,
+      message: badResponse(response, result, `Failed to fetch ${label}`),
       data: empty,
     };
   } catch (error: any) {
@@ -111,9 +130,9 @@ async function mutate(
       `${BASE}${path}`,
       payload === undefined ? undefined : jsonInit(payload)
     );
-    const result = await response.json();
+    const result = await parse(response);
 
-    if (result.success) {
+    if (result?.success) {
       touch(...(opts.tags ?? []));
       return {
         success: true,
@@ -121,10 +140,11 @@ async function mutate(
         data: result.data,
       };
     }
+    console.error(`[fees:${opts.label}] bad response`, response.status, result);
     return {
       success: false,
-      message: result.message || opts.fail,
-      errors: result.errors || {},
+      message: badResponse(response, result, opts.fail),
+      errors: result?.errors || {},
     };
   } catch (error: any) {
     console.error(`[fees:${opts.label}]`, error);

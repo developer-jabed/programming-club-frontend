@@ -7,7 +7,7 @@ import { revalidateTag } from "next/cache";
 const BASE = "/fees";
 
 // ─────────────────────────────────────────────────────────────
-// Shared helpers (one code path = less code shipped, fewer bugs)
+// Shared helpers
 // ─────────────────────────────────────────────────────────────
 const errMsg = (error: any, fallback: string) =>
   process.env.NODE_ENV === "development" ? error.message : fallback;
@@ -33,11 +33,8 @@ const jsonInit = (payload: unknown) => ({
 
 /**
  * Caching policy:
- *  - User-scoped data (dues, payments, summaries) is `no-store` on the Next side.
- *    The backend already caches it in memory (15–60s) and invalidates on every
- *    write, so this is still fast, and one user can never see another's data
- *    through Next's shared fetch cache.
- *  - Active categories are identical for everyone, so they ARE cached (5 min).
+ *  - User-scoped data (dues, payments, summaries) is `no-store`.
+ *  - Active categories are cached for 5 minutes.
  */
 const NO_STORE = { cache: "no-store" as const };
 
@@ -46,9 +43,17 @@ const touch = (...tags: string[]) => {
   for (const t of new Set(["fees", ...tags])) revalidateTag(t, "max");
 };
 
-async function getList(path: string, query: string | Params | undefined, init: any, label: string) {
+async function getList(
+  path: string,
+  query: string | Params | undefined,
+  init: any,
+  label: string
+) {
   try {
-    const response = await serverFetch.get(`${BASE}${path}${toQuery(query)}`, init);
+    const response = await serverFetch.get(
+      `${BASE}${path}${toQuery(query)}`,
+      init
+    );
     const result = await response.json();
 
     if (result.success) {
@@ -69,7 +74,12 @@ async function getList(path: string, query: string | Params | undefined, init: a
   }
 }
 
-async function getOne(path: string, init: any, label: string, empty: any = null) {
+async function getOne(
+  path: string,
+  init: any,
+  label: string,
+  empty: any = null
+) {
   try {
     const response = await serverFetch.get(`${BASE}${path}`, init);
     const result = await response.json();
@@ -135,7 +145,6 @@ const fail = (message: string, errors: Record<string, string>) => ({
 // CATEGORIES
 // ═════════════════════════════════════════════════════════════
 
-// Active categories → cached 5 min. Inactive ones (staff) → never cached.
 export async function getFeeCategories(includeInactive = false) {
   return getList(
     "/categories",
@@ -153,7 +162,8 @@ export async function createFeeCategory(input: {
   type?: "MONTHLY" | "ONE_TIME";
   amount?: number;
 }) {
-  if (!input.name?.trim()) return fail("Name is required", { name: "Name is required" });
+  if (!input.name?.trim())
+    return fail("Name is required", { name: "Name is required" });
   return mutate("post", "/categories", input, {
     ok: "Category created!",
     fail: "Failed to create category",
@@ -164,7 +174,12 @@ export async function createFeeCategory(input: {
 
 export async function updateFeeCategory(
   id: string,
-  input: { name?: string; description?: string | null; amount?: number; isActive?: boolean }
+  input: {
+    name?: string;
+    description?: string | null;
+    amount?: number;
+    isActive?: boolean;
+  }
 ) {
   if (Object.keys(input).length === 0) return fail("Nothing to update", {});
   return mutate("patch", `/categories/${id}`, input, {
@@ -179,10 +194,6 @@ export async function updateFeeCategory(
 // DUES
 // ═════════════════════════════════════════════════════════════
 
-/**
- * Filters: page, limit(≤50), sortBy(createdAt|dueDate|amount|year), order,
- * userId, categoryId, status, year, month, overdue, group, semester, search
- */
 export async function getFeeDues(query?: string | Params) {
   return getList("/dues", query, NO_STORE, "dues");
 }
@@ -191,14 +202,15 @@ export async function generateMonthlyDues(input: {
   categoryId: string;
   year: number;
   month: number;
-  dueDate?: string; // ISO date
+  dueDate?: string;
   group?: string;
   semester?: number;
 }) {
   const errors: Record<string, string> = {};
   if (!input.categoryId) errors.categoryId = "Category is required";
   if (!input.year) errors.year = "Year is required";
-  if (!input.month || input.month < 1 || input.month > 12) errors.month = "Month must be 1-12";
+  if (!input.month || input.month < 1 || input.month > 12)
+    errors.month = "Month must be 1-12";
   if (Object.keys(errors).length) return fail("Please fix the errors", errors);
 
   return mutate("post", "/dues/generate-monthly", input, {
@@ -245,13 +257,9 @@ export async function deleteFeeDue(id: string) {
 }
 
 // ═════════════════════════════════════════════════════════════
-// PAYMENTS (offline / cash)
+// PAYMENTS
 // ═════════════════════════════════════════════════════════════
 
-/**
- * Filters: page, limit(≤50), sortBy(paidAt|amount|receiptNo), order,
- * userId, categoryId, dueId, status, receivedById, receiptNo, from, to, search
- */
 export async function getFeePayments(query?: string | Params) {
   return getList("/payments", query, NO_STORE, "payments");
 }
@@ -265,7 +273,7 @@ export async function recordFeePayment(input: {
   userId?: string;
   categoryId?: string;
   amount: number;
-  paidAt?: string; // ISO date, defaults to now
+  paidAt?: string;
   note?: string;
 }) {
   const errors: Record<string, string> = {};
@@ -286,32 +294,45 @@ export async function recordFeePayment(input: {
 
 export async function voidFeePayment(id: string, reason: string) {
   if (!reason || reason.trim().length < 3) {
-    return fail("Reason is required", { reason: "Enter at least 3 characters" });
+    return fail("Reason is required", {
+      reason: "Enter at least 3 characters",
+    });
   }
-  return mutate("patch", `/payments/${id}/void`, { reason: reason.trim() }, {
-    ok: "Payment voided!",
-    fail: "Failed to void payment",
-    label: "voidPayment",
-  });
+  return mutate(
+    "patch",
+    `/payments/${id}/void`,
+    { reason: reason.trim() },
+    {
+      ok: "Payment voided!",
+      fail: "Failed to void payment",
+      label: "voidPayment",
+    }
+  );
 }
 
 // ═════════════════════════════════════════════════════════════
 // SUMMARIES
 // ═════════════════════════════════════════════════════════════
 
-// Admin / moderator overview. Optional { year, month }.
-export async function getFeeSummary(query?: { year?: number; month?: number }) {
-  return getOne(`/summary${toQuery(query)}`, NO_STORE, "summary", {
-    collected: 0,
-    paymentCount: 0,
-    totalDue: 0,
-    outstanding: 0,
-    overdueCount: 0,
-    dues: {},
-  });
+export async function getFeeSummary(query?: {
+  year?: number;
+  month?: number;
+}) {
+  return getOne(
+    `/summary${toQuery(query)}`,
+    NO_STORE,
+    "summary",
+    {
+      collected: 0,
+      paymentCount: 0,
+      totalDue: 0,
+      outstanding: 0,
+      overdueCount: 0,
+      dues: {},
+    }
+  );
 }
 
-// The logged-in member's own totals + next unpaid dues
 export async function getMyFeeSummary() {
   return getOne("/my-summary", NO_STORE, "my summary", {
     totalDue: 0,

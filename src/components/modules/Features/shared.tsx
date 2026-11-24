@@ -232,10 +232,15 @@ export function useQueryParams() {
 
   const set = (updates: Record<string, string | undefined>) => {
     const p = new URLSearchParams(sp.toString());
-    Object.entries(updates).forEach(([k, v]) => (v ? p.set(k, v) : p.delete(k)));
-    // page ছাড়া অন্য filter বদলালে page 1 এ ফিরে যাও
+    Object.entries(updates).forEach(([k, v]) =>
+      v ? p.set(k, v) : p.delete(k)
+    );
+    // reset to page 1 when any filter other than page changes
     if (!("page" in updates)) p.delete("page");
-    startTransition(() => router.push(`${pathname}?${p.toString()}`));
+
+    startTransition(() => {
+      router.push(`${pathname}?${p.toString()}`);
+    });
   };
 
   return { sp, set, isPending };

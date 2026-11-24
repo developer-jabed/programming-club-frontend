@@ -7,6 +7,8 @@ import { format } from "date-fns";
 import {
   Activity,
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
   FolderKanban,
   Layers,
   Loader2,
@@ -15,11 +17,20 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import {
+  CATEGORIES,
+  PERIODS,
+  formatDelta,
+  formatPoints,
+  type LeaderboardEntry,
+  type Period,
+} from "@/components/modules/leaderboard/leaderboardUtils";
 
 interface Props {
   stats: any;
   activities: any;
-  leaderboard: any;
+  leaderboard: LeaderboardEntry[];
+  period: Period;
   projectStats: any;
   growth: any;
   sectorStats: any;
@@ -57,7 +68,7 @@ const WRAPPER_KEYS = [
   "rows",
   "list",
   "activities",
-  "leaderboard",
+  "entries",
   "users",
 ];
 
@@ -156,6 +167,7 @@ export default function AnalyticsClient({
   stats,
   activities,
   leaderboard,
+  period,
   projectStats,
   growth,
   sectorStats,
@@ -170,9 +182,9 @@ export default function AnalyticsClient({
   const growthSeries = useMemo(() => toSeries(growth), [growth]);
   const sectorSeries = useMemo(() => toSeries(sectorStats), [sectorStats]);
 
-  // Normalize list props so they are always real arrays
+  // Activities are normalized to a real array (the leaderboard already is one)
   const activityList = useMemo(() => toArray(activities), [activities]);
-  const leaderboardList = useMemo(() => toArray(leaderboard), [leaderboard]);
+  const leaderboardList = useMemo(() => leaderboard ?? [], [leaderboard]);
 
   // Any numeric stat beyond the four known ones is shown too
   const extraStats = useMemo(() => {
@@ -185,7 +197,11 @@ export default function AnalyticsClient({
   }, [stats]);
 
   const rows = leaderboardList.slice(0, board === "10" ? 10 : 50);
-  const topScore = Math.max(1, ...rows.map((r: any) => r.score ?? r.points ?? 0));
+  const topScore = Math.max(1, ...rows.map((r) => r.points));
+
+  const changePeriod = (value: string) => {
+    startTransition(() => router.push(`?period=${value}`, { scroll: false }));
+  };
 
   return (
     <div className="space-y-6">
@@ -259,48 +275,106 @@ export default function AnalyticsClient({
           title="Leaderboard"
           icon={<Trophy className="h-4 w-4 text-primary" />}
           action={
-            leaderboardList.length > 10 && (
-              <button
-                onClick={() => setBoard((b) => (b === "10" ? "all" : "10"))}
-                className="text-xs text-primary hover:underline"
+            <div className="flex items-center gap-3">
+              <select
+                value={period}
+                onChange={(e) => changePeriod(e.target.value)}
+                disabled={isPending}
+                aria-label="Leaderboard period"
+                className="rounded-lg border border-border bg-background px-2 py-1 text-xs disabled:opacity-60"
               >
-                {board === "10" ? "Show more" : "Show top 10"}
-              </button>
-            )
+                {PERIODS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+              {leaderboardList.length > 10 && (
+                <button
+                  onClick={() => setBoard((b) => (b === "10" ? "all" : "10"))}
+                  className="text-xs text-primary hover:underline"
+                >
+                  {board === "10" ? "Show more" : "Show top 10"}
+                </button>
+              )}
+            </div>
           }
         >
+          {rows.length > 0 && (
+            <ul className="mb-3 flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-medium text-muted-foreground">
+              {CATEGORIES.map((c) => (
+                <li key={c.key} className="flex items-center gap-1">
+                  <span className={`h-1.5 w-1.5 rounded-full ${c.bar}`} />
+                  {c.label}
+                </li>
+              ))}
+            </ul>
+          )}
+
           <div className="max-h-96 space-y-1.5 overflow-y-auto">
-            {rows.map((item: any, i: number) => {
-              const score = item.score ?? item.points ?? 0;
-              const name = item.name || item.user?.name || "Unknown";
+            {rows.map((item) => {
+              const hasMix = Object.values(item.breakdown).some(Boolean);
+              const delta = formatDelta(item.pointsChange);
               return (
-                <div
-                  key={item.userId || item.id || i}
-                  className="rounded-lg px-2 py-1.5 hover:bg-muted/40"
-                >
+                <div key={item.id} className="rounded-lg px-2 py-1.5 hover:bg-muted/40">
                   <div className="flex items-center gap-3">
                     <span
                       className={`w-6 text-center text-sm font-bold ${
-                        i < 3 ? "text-primary" : "text-muted-foreground"
+                        item.rank <= 3 ? "text-primary" : "text-muted-foreground"
                       }`}
                     >
-                      {i + 1}
+                      {item.rank}
                     </span>
-                    <p className="flex-1 truncate text-sm">{name}</p>
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {score} pts
-                    </span>
+                    <p className="flex-1 truncate text-sm">{item.name}</p>
+                    <RankMove rankChange={item.rankChange} isNew={item.isNew} />
+                    <div className="text-right leading-tight">
+                      <span className="text-xs font-semibold tabular-nums text-muted-foreground">
+                        {formatPoints(item.points)} pts
+                      </span>
+                      {delta && (
+                        <span
+                          className={`block text-[10px] font-semibold tabular-nums ${
+                            (item.pointsChange ?? 0) > 0
+                              ? "text-emerald-500"
+                              : (item.pointsChange ?? 0) < 0
+                                ? "text-destructive"
+                                : "text-muted-foreground"
+                          }`}
+                        >
+                          {delta}
+                        </span>
+                      )}
+                    </div>
                   </div>
+
+                  {/* bar length = score vs the leader, colors = where the points came from */}
                   <div className="ml-9 mt-1 h-1 overflow-hidden rounded-full bg-muted">
                     <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${(score / topScore) * 100}%` }}
-                    />
+                      className="flex h-full overflow-hidden rounded-full"
+                      style={{ width: `${(item.points / topScore) * 100}%` }}
+                    >
+                      {hasMix ? (
+                        CATEGORIES.map((c) => {
+                          const v = item.breakdown[c.key];
+                          if (!v) return null;
+                          return (
+                            <div
+                              key={c.key}
+                              className={c.bar}
+                              style={{ width: `${(v / (item.points || 1)) * 100}%` }}
+                              title={`${c.label}: ${formatPoints(v)} pts`}
+                            />
+                          );
+                        })
+                      ) : (
+                        <div className="h-full w-full bg-primary" />
+                      )}
+                    </div>
                   </div>
                 </div>
               );
             })}
-            {rows.length === 0 && <Empty text="No data yet" />}
+            {rows.length === 0 && <Empty text="No activity in this period" />}
           </div>
         </Panel>
       </div>
@@ -336,6 +410,39 @@ export default function AnalyticsClient({
 // ─────────────────────────────────────────────────────────────
 // Pieces
 // ─────────────────────────────────────────────────────────────
+
+/** ▲ / ▼ rank movement vs the previous period (hidden when there's no comparison) */
+function RankMove({
+  rankChange,
+  isNew,
+}: {
+  rankChange: number | null;
+  isNew: boolean;
+}) {
+  if (isNew) {
+    return (
+      <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary">
+        NEW
+      </span>
+    );
+  }
+  if (!rankChange) return null;
+
+  const up = rankChange > 0;
+  const Icon = up ? ArrowUp : ArrowDown;
+  return (
+    <span
+      className={`inline-flex items-center gap-0.5 text-[11px] font-bold tabular-nums ${
+        up ? "text-emerald-500" : "text-destructive"
+      }`}
+      title={up ? "Moved up" : "Moved down"}
+    >
+      <Icon className="h-3 w-3" />
+      {Math.abs(rankChange)}
+    </span>
+  );
+}
+
 function Panel({
   title,
   icon,

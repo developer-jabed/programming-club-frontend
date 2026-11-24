@@ -1,87 +1,292 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import {
-  getAllProjects,
-  getMyProjects,
-  getJoinedProjects,
-} from "@/service/project/project.service";
-import { getAllSectors } from "@/service/sector/sector.service";
-import CreateProjectModal from "@/components/modules/projects/CreateProjectModal";
+import Link from "next/link";
+import { format } from "date-fns";
+import { MessageSquare, Pin, Tag, User2 } from "lucide-react";
 import { getUserInfo } from "@/service/auth/getUserInfo";
-import ProjectsClient from "@/components/modules/projects/ProjectsClient";
+import {
+  getFeatureRequests,
+  getFeatureUpdates,
+} from "@/service/features/features.service";
+
+import CreateRequestModal from "@/components/modules/Features/MemberFeatures/CreateRequestModel";
+import DeleteRequestButton from "@/components/modules/Features/MemberFeatures/deleteRequestModel";
+import VoteButton from "@/components/modules/Features/MemberFeatures/VoteButton";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 30;
 
-export default async function AdminProjectsPage() {
-  const currentUser: any = await getUserInfo().catch((e) => {
-    console.error("[ProjectsPage] getUserInfo failed:", e);
-    return null;
+const PAGE_SIZE = 10;
+
+type SP = Promise<{ tab?: string; status?: string; page?: string }>;
+
+// Align with your Prisma FeatureRequestStatus
+const STATUS_FILTERS = [
+  "ALL",
+  "OPEN",
+  "PLANNED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "REJECTED",
+];
+
+const badge: Record<string, string> = {
+  OPEN: "bg-muted text-muted-foreground",
+  PLANNED: "bg-blue-500/10 text-blue-600",
+  IN_PROGRESS: "bg-amber-500/10 text-amber-600",
+  COMPLETED: "bg-green-500/10 text-green-600",
+  REJECTED: "bg-destructive/10 text-destructive",
+  LOW: "bg-muted text-muted-foreground",
+  MEDIUM: "bg-amber-500/10 text-amber-600",
+  HIGH: "bg-destructive/10 text-destructive",
+};
+
+const pill = (v: string) =>
+  `inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wider ${badge[v] ?? "bg-primary/10 text-primary"
+  }`;
+
+const fmt = (d?: string | null) => {
+  if (!d) return "";
+  const date = new Date(d);
+  return Number.isNaN(date.getTime()) ? "" : format(date, "MMM d, yyyy");
+};
+
+const href = (p: { tab: string; status?: string; page?: number }) => {
+  const sp = new URLSearchParams({ tab: p.tab });
+  if (p.status && p.status !== "ALL") sp.set("status", p.status);
+  if (p.page && p.page > 1) sp.set("page", String(p.page));
+  return `?${sp.toString()}`;
+};
+
+const Page = async ({ searchParams }: { searchParams: SP }) => {
+  const sp = await searchParams;
+  const tab = sp.tab === "updates" ? "updates" : "requests";
+  const status = sp.status ?? "ALL";
+  const page = Math.max(1, Number(sp.page) || 1);
+
+  const q = new URLSearchParams({
+    page: String(page),
+    limit: String(PAGE_SIZE),
   });
+  if (tab === "requests" && status !== "ALL") q.set("status", status);
 
-  const currentUserId: string | null =
-    currentUser?.id ?? currentUser?.data?.id ?? null;
-
-  const [myRes, joinedRes, sectorsRes] = await Promise.all([
-    currentUserId
-      ? getMyProjects("limit=100")
-      : Promise.resolve({ success: true, data: [] as any[] }),
-    currentUserId
-      ? getJoinedProjects("limit=100")
-      : Promise.resolve({ success: true, data: [] as any[] }),
-    getAllSectors(),
+  const [user, res] = await Promise.all([
+    getUserInfo(),
+    tab === "requests"
+      ? getFeatureRequests(q.toString())
+      : getFeatureUpdates(q.toString()),
   ]);
 
-  const myProjects: any[] = myRes.success ? myRes.data ?? [] : [];
-  const joinedProjects: any[] = joinedRes.success ? joinedRes.data ?? [] : [];
-  const sectors = sectorsRes.success ? sectorsRes.data ?? [] : [];
-
-  // Remove owned projects from the joined list (so they don't appear twice)
-  const myIds = new Set(myProjects.map((p) => p.id));
-  const joinedOnly = joinedProjects.filter((p) => !myIds.has(p.id));
-
-  const errors: string[] = [];
-  if (!myRes.success) errors.push(`My projects: ${(myRes as any).message}`);
-  if (!joinedRes.success)
-    errors.push(`Joined projects: ${(joinedRes as any).message}`);
-  if (!currentUserId)
-    errors.push("Current user id not found (not logged in)");
+  const items: any[] = res.data ?? [];
+  const totalPages: number = res.meta?.totalPage ?? res.meta?.totalPages ?? 1;
 
   return (
-    <div className="theme-content min-h-[calc(100vh-4rem)]">
-      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <div className="theme-hero-chip mb-2.5 inline-flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-primary">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              Projects
-            </div>
-            <h1 className="font-serif text-3xl font-bold tracking-tight text-foreground">
-              My Projects
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Projects you own and projects you belong to
-            </p>
-          </div>
-
-          <CreateProjectModal sectors={sectors} />
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            Features & Updates
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Request features and follow what the team is building
+          </p>
         </div>
-
-        {errors.length > 0 && (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive space-y-1">
-            {errors.map((e) => (
-              <p key={e}>{e}</p>
-            ))}
-          </div>
-        )}
-
-        <ProjectsClient
-          myProjects={myProjects}
-          joinedProjects={joinedOnly}
-          sectors={sectors}
-          currentUserId={currentUserId}
-        />
+        {tab === "requests" && <CreateRequestModal />}
       </div>
+
+      {/* Tabs */}
+      <div className="flex w-fit gap-1 rounded-xl border border-border bg-card p-1 text-sm">
+        {(["requests", "updates"] as const).map((t) => (
+          <Link
+            key={t}
+            href={href({ tab: t })}
+            prefetch={false}
+            className={`rounded-lg px-4 py-1.5 font-medium capitalize ${tab === t
+                ? "bg-primary text-primary-foreground"
+                : "text-muted-foreground hover:bg-muted"
+              }`}
+          >
+            {t === "requests" ? "Feature requests" : "Updates"}
+          </Link>
+        ))}
+      </div>
+
+      {/* Status filters */}
+      {tab === "requests" && (
+        <div className="flex flex-wrap gap-2">
+          {STATUS_FILTERS.map((s) => (
+            <Link
+              key={s}
+              href={href({ tab, status: s })}
+              prefetch={false}
+              className={`rounded-full border px-3 py-1 text-xs font-medium ${status === s
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border text-muted-foreground hover:bg-muted"
+                }`}
+            >
+              {s.replace("_", " ")}
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {!res.success && (
+        <p className="text-sm text-destructive">
+          {res.message || "Could not load data."}
+        </p>
+      )}
+
+      {res.success && items.length === 0 && (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          Nothing here yet.
+        </div>
+      )}
+
+      {/* Requests list */}
+      {tab === "requests" && items.length > 0 && (
+        <ul className="space-y-3">
+          {items.map((r) => (
+            <li
+              key={r.id}
+              className="rounded-2xl border border-border bg-card p-5 transition hover:border-primary/30"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Link
+                      href={`/report-requests/${r.id}`}
+                      className="font-semibold hover:underline"
+                    >
+                      {r.title}
+                    </Link>
+                    {r.status && (
+                      <span className={pill(r.status)}>
+                        {String(r.status).replace("_", " ")}
+                      </span>
+                    )}
+                    {r.priority && (
+                      <span className={pill(r.priority)}>{r.priority}</span>
+                    )}
+                  </div>
+
+                  <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm text-muted-foreground">
+                    {r.description}
+                  </p>
+
+                  {r.adminNote && (
+                    <p className="mt-3 rounded-lg bg-primary/5 px-3 py-2 text-xs text-foreground">
+                      <span className="font-semibold">Team note: </span>
+                      {r.adminNote}
+                    </p>
+                  )}
+                </div>
+
+                {/* Vote + Delete */}
+                <div className="flex items-center gap-2">
+                  <VoteButton
+                    requestId={r.id}
+                    initialVotes={r.votes ?? 0}
+                    initialHasVoted={!!r.hasVoted}
+                    disabled={!user?.id}
+                  />
+                  {user?.id && r.createdBy?.id === user.id && (
+                    <DeleteRequestButton id={r.id} />
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                {r.createdBy?.name && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <User2 className="h-3.5 w-3.5" />
+                    {r.createdBy.name}
+                  </span>
+                )}
+                <span>{fmt(r.createdAt)}</span>
+                <Link
+                  href={`/report-requests/${r.id}`}
+                  className="inline-flex items-center gap-1.5 hover:text-foreground"
+                >
+                  <MessageSquare className="h-3.5 w-3.5" />
+                  {r._count?.replies ?? 0} replies
+                </Link>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Updates list – unchanged */}
+      {tab === "updates" && items.length > 0 && (
+        <ul className="space-y-3">
+          {items.map((u) => (
+            <li
+              key={u.id}
+              className="rounded-2xl border border-border bg-card p-5"
+            >
+              <div className="flex flex-wrap items-center gap-2">
+                {u.isPinned && <Pin className="h-4 w-4 text-primary" />}
+                <h2 className="font-semibold">{u.title}</h2>
+                {u.type && <span className={pill(u.type)}>{u.type}</span>}
+                {u.version && (
+                  <span className="rounded-md border border-border px-2 py-0.5 text-[11px] font-medium">
+                    v{String(u.version).replace(/^v/i, "")}
+                  </span>
+                )}
+              </div>
+              <p className="mt-2 line-clamp-4 whitespace-pre-line text-sm text-muted-foreground">
+                {u.content}
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
+                <span>{fmt(u.publishedAt ?? u.createdAt)}</span>
+                {u.author?.name && (
+                  <span className="inline-flex items-center gap-1.5">
+                    <User2 className="h-3.5 w-3.5" />
+                    {u.author.name}
+                  </span>
+                )}
+                {Array.isArray(u.tags) &&
+                  u.tags.slice(0, 4).map((t: string) => (
+                    <span key={t} className="inline-flex items-center gap-1">
+                      <Tag className="h-3 w-3" />
+                      {t}
+                    </span>
+                  ))}
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm">
+          {page > 1 ? (
+            <Link
+              href={href({ tab, status, page: page - 1 })}
+              className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted"
+            >
+              ← Previous
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-muted-foreground">
+            Page {page} of {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={href({ tab, status, page: page + 1 })}
+              className="rounded-lg border border-border px-3 py-1.5 hover:bg-muted"
+            >
+              Next →
+            </Link>
+          ) : (
+            <span />
+          )}
+        </div>
+      )}
     </div>
   );
-}
+};
+
+export default Page;

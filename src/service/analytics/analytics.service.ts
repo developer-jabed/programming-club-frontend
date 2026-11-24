@@ -77,16 +77,38 @@ export async function getRecentActivities() {
 
 // ─────────────────────────────────────────────────────────────
 // Leaderboard
+//   period:   7d | 30d | 90d | this_month | last_month | all_time
+//   limit / offset: pagination
+//   group / semester: optional filters
 // ─────────────────────────────────────────────────────────────
-export async function getLeaderboard() {
+export async function getLeaderboard(
+  params: {
+    period?: string;
+    limit?: number;
+    offset?: number;
+    group?: string;
+    semester?: number | string;
+  } = {},
+) {
   try {
-    const response = await serverFetch.get("/analytics/leaderboard", {
-      next: { tags: ["leaderboard"], revalidate: 120 },
-    });
+    const qs = new URLSearchParams();
+    if (params.period) qs.set("period", params.period);
+    if (params.limit) qs.set("limit", String(params.limit));
+    if (params.offset) qs.set("offset", String(params.offset));
+    if (params.group) qs.set("group", params.group);
+    if (params.semester) qs.set("semester", String(params.semester));
+
+    const query = qs.toString();
+    const response = await serverFetch.get(
+      `/analytics/leaderboard${query ? `?${query}` : ""}`,
+      {
+        // the URL (with its query) is part of the cache key,
+        // so every period/filter is cached separately
+        next: { tags: ["leaderboard"], revalidate: 60 },
+      },
+    );
 
     const result = await response.json();
-
-    console.log("result", result);
 
     if (result.success) {
       return {
@@ -98,7 +120,7 @@ export async function getLeaderboard() {
     return {
       success: false,
       message: result.message || "Failed to fetch leaderboard",
-      data: [],
+      data: null,
     };
   } catch (error: any) {
     console.error("[getLeaderboard]", error);
@@ -108,7 +130,7 @@ export async function getLeaderboard() {
         process.env.NODE_ENV === "development"
           ? error.message
           : "Something went wrong",
-      data: [],
+      data: null,
     };
   }
 }

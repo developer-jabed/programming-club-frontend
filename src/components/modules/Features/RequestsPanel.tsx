@@ -55,9 +55,9 @@ export default function RequestsPanel({ result }: { result: any }) {
   };
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="space-y-5">
+      {/* Filters – improved spacing & alignment */}
+      <div className="flex flex-wrap items-center gap-3">
         <form
           className="flex flex-1 gap-2 sm:max-w-sm"
           onSubmit={(e) => {
@@ -77,7 +77,7 @@ export default function RequestsPanel({ result }: { result: any }) {
         </form>
 
         <select
-          className={`${inputCls} !w-auto`}
+          className={`${inputCls} !w-auto min-w-[140px]`}
           value={sp.get("status") ?? ""}
           onChange={(e) => set({ status: e.target.value || undefined })}
         >
@@ -90,7 +90,7 @@ export default function RequestsPanel({ result }: { result: any }) {
         </select>
 
         <select
-          className={`${inputCls} !w-auto`}
+          className={`${inputCls} !w-auto min-w-[140px]`}
           value={sp.get("priority") ?? ""}
           onChange={(e) => set({ priority: e.target.value || undefined })}
         >
@@ -143,7 +143,10 @@ export default function RequestsPanel({ result }: { result: any }) {
             <tbody className="divide-y divide-white/10">
               {items.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-gray-400">
+                  <td
+                    colSpan={8}
+                    className="px-4 py-10 text-center text-gray-400"
+                  >
                     No feature requests found.
                   </td>
                 </tr>

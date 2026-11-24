@@ -30,13 +30,14 @@ export default function FeatureAdminClient({
   ] as const;
 
   return (
-    <div className="space-y-4">
-      <div className="flex gap-1 border-b border-white/10">
+    <div className="space-y-6">
+      {/* Tabs with better spacing */}
+      <div className="flex gap-1 border-b border-white/10 pb-0">
         {tabs.map((t) => (
           <button
             key={t.key}
             onClick={() => router.push(`${pathname}?tab=${t.key}`)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium transition ${
+            className={`-mb-px border-b-2 px-5 py-2.5 text-sm font-medium transition ${
               tab === t.key
                 ? "border-emerald-400 text-emerald-400"
                 : "border-transparent text-gray-400 hover:text-gray-200"
@@ -47,11 +48,13 @@ export default function FeatureAdminClient({
         ))}
       </div>
 
-      {tab === "requests" ? (
-        <RequestsPanel result={requests} />
-      ) : (
-        <UpdatesPanel result={updates} />
-      )}
+      <div className="pt-1">
+        {tab === "requests" ? (
+          <RequestsPanel result={requests} />
+        ) : (
+          <UpdatesPanel result={updates} />
+        )}
+      </div>
     </div>
   );
 }

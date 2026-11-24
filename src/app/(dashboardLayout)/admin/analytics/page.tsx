@@ -8,10 +8,21 @@ import {
   getSectorStats,
 } from "@/service/analytics/analytics.service";
 import AnalyticsClient from "@/components/modules/analytics/AnalyticsClient";
+import {
+  normalizeLeaderboard,
+  parsePeriod,
+} from "@/components/modules/leaderboard/leaderboardUtils";
 
 export const dynamic = "force-dynamic";
 
-export default async function AnalyticsPage() {
+export default async function AnalyticsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ period?: string }>;
+}) {
+  const { period: periodParam } = await searchParams;
+  const period = parsePeriod(periodParam);
+
   const [
     statsRes,
     activitiesRes,
@@ -22,7 +33,7 @@ export default async function AnalyticsPage() {
   ] = await Promise.all([
     getDashboardStats(),
     getRecentActivities(),
-    getLeaderboard(),
+    getLeaderboard({ period, limit: 50 }),
     getProjectStats(),
     getMonthlyGrowth(),
     getSectorStats(),
@@ -39,6 +50,11 @@ export default async function AnalyticsPage() {
     .filter(([, r]: any) => !r.success)
     .map(([name]) => name as string);
 
+  // the leaderboard response is an object now ({ entries, me, ... }), not an array
+  const board = normalizeLeaderboard(
+    leaderboardRes.success ? leaderboardRes.data : null,
+  );
+
   return (
     <div className="space-y-6">
       <div>
@@ -53,7 +69,8 @@ export default async function AnalyticsPage() {
       <AnalyticsClient
         stats={statsRes.success ? statsRes.data : null}
         activities={activitiesRes.success ? activitiesRes.data : []}
-        leaderboard={leaderboardRes.success ? leaderboardRes.data : []}
+        leaderboard={board.entries}
+        period={period}
         projectStats={projectStatsRes.success ? projectStatsRes.data : null}
         growth={growthRes.success ? growthRes.data : null}
         sectorStats={sectorStatsRes.success ? sectorStatsRes.data : null}

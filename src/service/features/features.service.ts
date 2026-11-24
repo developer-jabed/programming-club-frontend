@@ -52,9 +52,6 @@ const jsonInit = (payload: unknown) => ({
 // FEATURE REQUESTS
 // ═════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────
-// Get Feature Requests
-// ─────────────────────────────────────────────────────────────
 export async function getFeatureRequests(query?: string) {
   try {
     const response = await serverFetch.get(
@@ -83,9 +80,6 @@ export async function getFeatureRequests(query?: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Get Feature Request By Id
-// ─────────────────────────────────────────────────────────────
 export async function getFeatureRequestById(id: string) {
   try {
     const response = await serverFetch.get(`${BASE}/requests/${id}`, {
@@ -113,10 +107,10 @@ export async function getFeatureRequestById(id: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Create Feature Request
-// ─────────────────────────────────────────────────────────────
-export async function createFeatureRequest(_prevState: any, formData: FormData) {
+export async function createFeatureRequest(
+  _prevState: any,
+  formData: FormData
+) {
   try {
     const payload = clean({
       title: str(formData, "title"),
@@ -134,7 +128,10 @@ export async function createFeatureRequest(_prevState: any, formData: FormData) 
       return { success: false, message: "Please fix the errors", errors };
     }
 
-    const response = await serverFetch.post(`${BASE}/requests`, jsonInit(payload));
+    const response = await serverFetch.post(
+      `${BASE}/requests`,
+      jsonInit(payload)
+    );
     const result = await response.json();
 
     if (result.success) {
@@ -160,9 +157,6 @@ export async function createFeatureRequest(_prevState: any, formData: FormData) 
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Update Feature Request (owner: title/description, admin: status/adminNote ও)
-// ─────────────────────────────────────────────────────────────
 export async function updateFeatureRequest(
   id: string,
   _prevState: any,
@@ -213,9 +207,6 @@ export async function updateFeatureRequest(
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Delete Feature Request
-// ─────────────────────────────────────────────────────────────
 export async function deleteFeatureRequest(id: string) {
   try {
     const response = await serverFetch.delete(`${BASE}/requests/${id}`);
@@ -243,13 +234,41 @@ export async function deleteFeatureRequest(id: string) {
   }
 }
 
+export async function toggleFeatureVote(featureRequestId: string) {
+  try {
+    const response = await serverFetch.post(
+      `${BASE}/requests/${featureRequestId}/vote`,
+      jsonInit({})
+    );
+    const result = await response.json();
+
+    if (result.success) {
+      revalidateTag("feature-requests", "max");
+      revalidateTag(`feature-request-${featureRequestId}`, "max");
+      return {
+        success: true,
+        message: result.message || "Vote updated",
+        data: result.data,
+      };
+    }
+
+    return {
+      success: false,
+      message: result.message || "Failed to toggle vote",
+    };
+  } catch (error: any) {
+    console.error("[toggleFeatureVote]", error);
+    return {
+      success: false,
+      message: errorMessage(error, "Something went wrong. Please try again."),
+    };
+  }
+}
+
 // ═════════════════════════════════════════════════════════════
 // REPLIES
 // ═════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────
-// Create Reply
-// ─────────────────────────────────────────────────────────────
 export async function createFeatureReply(
   featureRequestId: string,
   _prevState: any,
@@ -277,7 +296,7 @@ export async function createFeatureReply(
 
     if (result.success) {
       revalidateTag(`feature-request-${featureRequestId}`, "max");
-      revalidateTag("feature-requests", "max"); // list এ reply count আছে
+      revalidateTag("feature-requests", "max");
       return {
         success: true,
         message: result.message || "Reply added!",
@@ -299,9 +318,6 @@ export async function createFeatureReply(
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Delete Reply
-// ─────────────────────────────────────────────────────────────
 export async function deleteFeatureReply(
   replyId: string,
   featureRequestId: string
@@ -333,12 +349,9 @@ export async function deleteFeatureReply(
 }
 
 // ═════════════════════════════════════════════════════════════
-// FEATURE UPDATES / TECHNICAL REPORTS
+// FEATURE UPDATES
 // ═════════════════════════════════════════════════════════════
 
-// ─────────────────────────────────────────────────────────────
-// Get Feature Updates
-// ─────────────────────────────────────────────────────────────
 export async function getFeatureUpdates(query?: string) {
   try {
     const response = await serverFetch.get(
@@ -367,9 +380,6 @@ export async function getFeatureUpdates(query?: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Get Feature Update By Id
-// ─────────────────────────────────────────────────────────────
 export async function getFeatureUpdateById(id: string) {
   try {
     const response = await serverFetch.get(`${BASE}/updates/${id}`, {
@@ -397,10 +407,10 @@ export async function getFeatureUpdateById(id: string) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Create Feature Update (Admin / Moderator)
-// ─────────────────────────────────────────────────────────────
-export async function createFeatureUpdate(_prevState: any, formData: FormData) {
+export async function createFeatureUpdate(
+  _prevState: any,
+  formData: FormData
+) {
   try {
     const payload = clean({
       title: str(formData, "title"),
@@ -423,14 +433,19 @@ export async function createFeatureUpdate(_prevState: any, formData: FormData) {
       return { success: false, message: "Please fix the errors", errors };
     }
 
-    const response = await serverFetch.post(`${BASE}/updates`, jsonInit(payload));
+    const response = await serverFetch.post(
+      `${BASE}/updates`,
+      jsonInit(payload)
+    );
     const result = await response.json();
 
     if (result.success) {
       revalidateTag("feature-updates", "max");
-      // related request এর page এ relatedUpdates দেখায়
       if (payload.relatedFeatureRequestId) {
-        revalidateTag(`feature-request-${payload.relatedFeatureRequestId}`, "max");
+        revalidateTag(
+          `feature-request-${payload.relatedFeatureRequestId}`,
+          "max"
+        );
       }
       return {
         success: true,
@@ -453,9 +468,6 @@ export async function createFeatureUpdate(_prevState: any, formData: FormData) {
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Update Feature Update (Admin / Moderator)
-// ─────────────────────────────────────────────────────────────
 export async function updateFeatureUpdate(
   id: string,
   _prevState: any,
@@ -509,9 +521,6 @@ export async function updateFeatureUpdate(
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Delete Feature Update (Admin / Moderator)
-// ─────────────────────────────────────────────────────────────
 export async function deleteFeatureUpdate(id: string) {
   try {
     const response = await serverFetch.delete(`${BASE}/updates/${id}`);

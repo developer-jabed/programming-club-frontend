@@ -3,7 +3,6 @@ import Link from "next/link";
 import { format } from "date-fns";
 import { MessageSquare, Pin, Tag, User2 } from "lucide-react";
 import { getUserInfo } from "@/service/auth/getUserInfo";
-// TODO: adjust to where your feature actions live
 import {
   getFeatureRequests,
   getFeatureUpdates,
@@ -11,6 +10,7 @@ import {
 
 import CreateRequestModal from "@/components/modules/Features/MemberFeatures/CreateRequestModel";
 import DeleteRequestButton from "@/components/modules/Features/MemberFeatures/deleteRequestModel";
+import VoteButton from "@/components/modules/Features/MemberFeatures/VoteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -18,13 +18,20 @@ const PAGE_SIZE = 10;
 
 type SP = Promise<{ tab?: string; status?: string; page?: string }>;
 
-const STATUS_FILTERS = ["ALL", "PENDING", "PLANNED", "IN_PROGRESS", "DONE", "REJECTED"];
+const STATUS_FILTERS = [
+  "ALL",
+  "OPEN",
+  "PLANNED",
+  "IN_PROGRESS",
+  "COMPLETED",
+  "REJECTED",
+];
 
 const badge: Record<string, string> = {
-  PENDING: "bg-muted text-muted-foreground",
+  OPEN: "bg-muted text-muted-foreground",
   PLANNED: "bg-blue-500/10 text-blue-600",
   IN_PROGRESS: "bg-amber-500/10 text-amber-600",
-  DONE: "bg-green-500/10 text-green-600",
+  COMPLETED: "bg-green-500/10 text-green-600",
   REJECTED: "bg-destructive/10 text-destructive",
   LOW: "bg-muted text-muted-foreground",
   MEDIUM: "bg-amber-500/10 text-amber-600",
@@ -55,14 +62,12 @@ const Page = async ({ searchParams }: { searchParams: SP }) => {
   const status = sp.status ?? "ALL";
   const page = Math.max(1, Number(sp.page) || 1);
 
-  // Build the query for the active tab only
   const q = new URLSearchParams({
     page: String(page),
     limit: String(PAGE_SIZE),
   });
   if (tab === "requests" && status !== "ALL") q.set("status", status);
 
-  // Fetch only what this tab needs, in parallel
   const [user, res] = await Promise.all([
     getUserInfo(),
     tab === "requests"
@@ -89,7 +94,7 @@ const Page = async ({ searchParams }: { searchParams: SP }) => {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 rounded-xl border border-border bg-card p-1 text-sm w-fit">
+      <div className="flex w-fit gap-1 rounded-xl border border-border bg-card p-1 text-sm">
         {(["requests", "updates"] as const).map((t) => (
           <Link
             key={t}
@@ -106,7 +111,7 @@ const Page = async ({ searchParams }: { searchParams: SP }) => {
         ))}
       </div>
 
-      {/* Status filters (requests only) */}
+      {/* Status filters */}
       {tab === "requests" && (
         <div className="flex flex-wrap gap-2">
           {STATUS_FILTERS.map((s) => (
@@ -146,18 +151,31 @@ const Page = async ({ searchParams }: { searchParams: SP }) => {
           {items.map((r) => (
             <li
               key={r.id}
-              className="rounded-2xl border border-border bg-card p-5"
+              className="rounded-2xl border border-border bg-card p-5 transition hover:border-primary/30"
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="font-semibold">{r.title}</h2>
-                    {r.status && <span className={pill(r.status)}>{String(r.status).replace("_", " ")}</span>}
-                    {r.priority && <span className={pill(r.priority)}>{r.priority}</span>}
+                    <Link
+                      href={`/report-requests/${r.id}`}
+                      className="font-semibold hover:underline"
+                    >
+                      {r.title}
+                    </Link>
+                    {r.status && (
+                      <span className={pill(r.status)}>
+                        {String(r.status).replace("_", " ")}
+                      </span>
+                    )}
+                    {r.priority && (
+                      <span className={pill(r.priority)}>{r.priority}</span>
+                    )}
                   </div>
+
                   <p className="mt-2 line-clamp-3 whitespace-pre-line text-sm text-muted-foreground">
                     {r.description}
                   </p>
+
                   {r.adminNote && (
                     <p className="mt-3 rounded-lg bg-primary/5 px-3 py-2 text-xs text-foreground">
                       <span className="font-semibold">Team note: </span>
@@ -165,23 +183,36 @@ const Page = async ({ searchParams }: { searchParams: SP }) => {
                     </p>
                   )}
                 </div>
-                {user?.id && r.creator?.id === user.id && (
-                  <DeleteRequestButton id={r.id} />
-                )}
+
+                {/* Vote + Delete */}
+                <div className="flex items-center gap-2">
+                  <VoteButton
+                    requestId={r.id}
+                    initialVotes={r.votes ?? 0}
+                    initialHasVoted={!!r.hasVoted}
+                    disabled={!user?.id}
+                  />
+                  {user?.id && r.createdBy?.id === user.id && (
+                    <DeleteRequestButton id={r.id} />
+                  )}
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs text-muted-foreground">
-                {r.creator?.name && (
+                {r.createdBy?.name && (
                   <span className="inline-flex items-center gap-1.5">
                     <User2 className="h-3.5 w-3.5" />
-                    {r.creator.name}
+                    {r.createdBy.name}
                   </span>
                 )}
                 <span>{fmt(r.createdAt)}</span>
-                <span className="inline-flex items-center gap-1.5">
+                <Link
+                  href={`/report-requests/${r.id}`}
+                  className="inline-flex items-center gap-1.5 hover:text-foreground"
+                >
                   <MessageSquare className="h-3.5 w-3.5" />
-                  {r._count?.replies ?? r.replies?.length ?? 0}
-                </span>
+                  {r._count?.replies ?? 0} replies
+                </Link>
               </div>
             </li>
           ))}

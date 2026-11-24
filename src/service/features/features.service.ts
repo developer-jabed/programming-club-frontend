@@ -83,18 +83,20 @@ export async function getFeatureRequests(query?: string) {
 export async function getFeatureRequestById(id: string) {
   try {
     const response = await serverFetch.get(`${BASE}/requests/${id}`, {
-      next: { tags: ["feature-requests", `feature-request-${id}`] },
+      cache: "no-store",
     });
 
-    const result = await response.json();
+    const text = await response.text();
+    const result = text ? JSON.parse(text) : null;
 
-    if (result.success) {
+    if (result?.success) {
       return { success: true, data: result.data };
     }
 
     return {
       success: false,
-      message: result.message || "Failed to fetch feature request",
+      message:
+        result?.message || `Empty response (status ${response.status})`,
       data: null,
     };
   } catch (error: any) {

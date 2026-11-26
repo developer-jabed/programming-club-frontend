@@ -1,6 +1,7 @@
 import DashboardNavbar from "@/components/Dashboard/DashboardNavbar";
 import DashboardSidebar from "@/components/Dashboard/DashboardSidebar";
 import DashboardBackground from "@/components/shared/DashboardBackground";
+import ProfileCompletionGate from "@/components/shared/ProfileCompletionGate";
 import React from "react";
 
 const CommonDashboardLayout = async ({
@@ -27,6 +28,9 @@ const CommonDashboardLayout = async ({
           </div>
         </main>
       </div>
+
+      {/* Profile completion popup (renders only if profile fields are missing) */}
+      <ProfileCompletionGate />
     </div>
   );
 };

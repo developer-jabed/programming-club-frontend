@@ -58,6 +58,7 @@ export const adminNavItems: NavSection[] = [
       { title: "Tasks", href: "/admin/tasks", icon: "ListTodo", roles: ["ADMIN"] },
       { title: "Tests", href: "/admin/tests", icon: "ClipboardList", roles: ["ADMIN"] },
       { title: "Fees", href: "/admin/fees", icon: "DollarSign", roles: ["ADMIN"] },
+      { title: "Expenses", href: "/admin/expenses", icon: "DollarSign", roles: ["ADMIN"] },
       { title: "Analytics", href: "/admin/analytics", icon: "BarChart3", roles: ["ADMIN"] },
       { title: "System", href: "/admin/system", icon: "Settings", roles: ["ADMIN"] },
       { title: "Report & Requests", href: "/admin/report-requests", icon: "FileText", roles: ["ADMIN"] },

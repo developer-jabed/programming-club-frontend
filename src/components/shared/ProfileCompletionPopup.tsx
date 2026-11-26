@@ -10,7 +10,7 @@ import {
 
 const STORAGE_KEY = "profile-completion-dismissed-at";
 // How long to stay hidden after the user closes the popup.
-const COOLDOWN_MS = 3 * 24 * 60 * 60 * 1000; // 3 days
+const COOLDOWN_MS = 1 * 24 * 60 * 60 * 1000; // 1 day
 
 // --- dismissed-state store (localStorage + in-memory fallback) ---
 let memoryDismissed = false;
